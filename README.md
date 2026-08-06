@@ -371,6 +371,11 @@ These features can be added after completing the core MVP.
 
 file flow chart
 
+# 📂 Project Structure
+
+The project is organized into frontend, backend, database, and API integration modules.
+
+```
 MedAlert-AI/
 
 │
@@ -428,3 +433,74 @@ MedAlert-AI/
 │
 └── database/
     └── medalert.sql
+```
+
+## Module Description
+
+### Frontend
+Contains the user interface for:
+
+- Patient Application
+- Hospital Dashboard
+- Ambulance Dashboard
+- Admin Dashboard
+
+Technologies:
+- HTML
+- CSS
+- Bootstrap
+- JavaScript
+
+
+### Backend
+Handles:
+
+- User authentication
+- Emergency requests
+- Hospital matching
+- Ambulance assignment
+- API communication
+
+
+Technologies:
+- PHP
+- REST APIs
+
+
+### Database
+
+Stores:
+
+- User details
+- Medical profiles
+- Hospital information
+- Ambulance details
+- Emergency records
+
+
+Technology:
+- MySQL
+
+
+### AI Module
+
+`gemini.php`
+
+Handles:
+
+- Emergency classification
+- Severity prediction
+- Medical department recommendation
+- AI-generated emergency summary
+
+
+### Maps Module
+
+`maps.js`
+
+Handles:
+
+- GPS location
+- Hospital search
+- Distance calculation
+- ETA tracking
