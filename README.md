@@ -367,3 +367,64 @@ These features can be added after completing the core MVP.
 - Wear OS / Smartwatch SOS
 - Offline Mode
 - QR Medical Profile
+
+
+file flow chart
+
+MedAlert-AI/
+
+│
+├── index.html
+├── login.html
+├── register.html
+│
+├── patient/
+│   ├── dashboard.html
+│   ├── sos.html
+│   ├── profile.html
+│   └── tracking.html
+│
+├── hospital/
+│   ├── dashboard.html
+│   └── emergency.html
+│
+├── ambulance/
+│   ├── dashboard.html
+│   └── navigation.html
+│
+├── admin/
+│   └── dashboard.html
+│
+├── css/
+│   └── style.css
+│
+├── js/
+│   ├── auth.js
+│   ├── sos.js
+│   ├── maps.js
+│   └── gemini.js
+│
+├── backend/
+│
+│   ├── config/
+│   │    └── database.php
+│   │
+│   ├── auth/
+│   │    ├── login.php
+│   │    └── register.php
+│   │
+│   ├── emergency/
+│   │    ├── create.php
+│   │    └── update.php
+│   │
+│   ├── hospital/
+│   │    └── match.php
+│   │
+│   ├── ambulance/
+│   │    └── assign.php
+│   │
+│   └── ai/
+│        └── gemini.php
+│
+└── database/
+    └── medalert.sql
