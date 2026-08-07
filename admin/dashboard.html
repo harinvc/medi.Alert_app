@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | MedAlert AI</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-blue: #0d6efd;
+            --dark-blue: #0a2540;
+            --danger-red: #dc3545;
+            --light-bg: #f4f7f6;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-bg);
+            overflow-x: hidden;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 260px;
+            background-color: var(--dark-blue);
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        .sidebar .brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+        .sidebar-link {
+            color: #a0aec0;
+            padding: 0.8rem 1.5rem;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+        .sidebar-link:hover, .sidebar-link.active {
+            color: white;
+            background-color: rgba(13, 110, 253, 0.2);
+            border-left: 4px solid var(--primary-blue);
+        }
+        .sidebar-link i {
+            margin-right: 15px;
+            font-size: 1.2rem;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            margin-left: 260px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+        
+        /* Navbar Styles */
+        .top-navbar {
+            background-color: white;
+            height: 70px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            padding: 0 2rem;
+            z-index: 999;
+            position: sticky;
+            top: 0;
+        }
+
+        /* Card Styles */
+        .stat-card {
+            border-radius: 12px;
+            border: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important;
+        }
+        .icon-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        /* Chart Placeholders */
+        .chart-placeholder {
+            height: 250px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #adb5bd;
+            border: 1px dashed #ced4da;
+        }
+
+        /* Table Styles */
+        .table-custom th {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .table-custom td {
+            vertical-align: middle;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <i class="bi bi-heart-pulse-fill text-danger me-2"></i> MedAlert AI
+        </div>
+        <div class="sidebar-nav">
+            <a href="#" class="sidebar-link active"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-people-fill"></i> Users</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-hospital-fill"></i> Hospitals</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-truck"></i> Ambulances</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-activity"></i> Emergency Requests</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-bar-chart-fill"></i> Reports</a>
+            <a href="#" class="sidebar-link"><i class="bi bi-gear-fill"></i> Settings</a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Top Navigation -->
+        <nav class="top-navbar d-flex justify-content-between">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light d-lg-none me-3" id="sidebarToggle">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <h4 class="mb-0 fw-bold text-dark d-none d-sm-block">Dashboard Overview</h4>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <!-- Notifications -->
+                <div class="dropdown">
+                    <button class="btn btn-light rounded-circle position-relative p-2" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            4
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                        <li><h6 class="dropdown-header">Notifications</h6></li>
+                        <li><a class="dropdown-item" href="#">New emergency reported</a></li>
+                        <li><a class="dropdown-item" href="#">Ambulance #4 offline</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Admin Profile Dropdown -->
+                <div class="dropdown">
+                    <button class="btn border-0 bg-transparent d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                        <img src="https://ui-avatars.com/api/?name=Admin+User&background=0d6efd&color=fff&rounded=true" alt="Admin" width="36" height="36">
+                        <div class="text-start d-none d-md-block">
+                            <span class="d-block fw-bold fs-6 text-dark" style="line-height: 1;">Admin User</span>
+                            <small class="text-muted" style="font-size: 0.75rem;">System Administrator</small>
+                        </div>
+                        <i class="bi bi-chevron-down text-muted ms-1"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i> Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-shield-lock me-2"></i> Security</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger fw-bold" href="#"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div class="container-fluid p-4 flex-grow-1">
+            
+            <!-- Dashboard Cards Row -->
+            <div class="row g-4 mb-4">
+                <!-- Total Users -->
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card stat-card shadow-sm h-100 border-start border-4 border-primary">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Total Users</p>
+                                <h3 class="fw-bold mb-0 text-dark">12,450</h3>
+                            </div>
+                            <div class="icon-box bg-primary bg-opacity-10 text-primary">
+                                <i class="bi bi-people-fill"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Registered Hospitals -->
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card stat-card shadow-sm h-100 border-start border-4 border-info">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Registered Hospitals</p>
+                                <h3 class="fw-bold mb-0 text-dark">342</h3>
+                            </div>
+                            <div class="icon-box bg-info bg-opacity-10 text-info">
+                                <i class="bi bi-hospital"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Active Ambulances -->
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card stat-card shadow-sm h-100 border-start border-4 border-warning">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Active Ambulances</p>
+                                <h3 class="fw-bold mb-0 text-dark">89</h3>
+                            </div>
+                            <div class="icon-box bg-warning bg-opacity-10 text-warning">
+                                <i class="bi bi-truck"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Active Emergency Cases -->
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card stat-card shadow-sm h-100 border-start border-4 border-danger">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Active Emergencies</p>
+                                <h3 class="fw-bold mb-0 text-dark">24</h3>
+                            </div>
+                            <div class="icon-box bg-danger bg-opacity-10 text-danger">
+                                <i class="bi bi-activity"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Completed Emergencies -->
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card stat-card shadow-sm h-100 border-start border-4 border-success">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Completed Emergencies</p>
+                                <h3 class="fw-bold mb-0 text-dark">1,204</h3>
+                            </div>
+                            <div class="icon-box bg-success bg-opacity-10 text-success">
+                                <i class="bi bi-check-circle-fill"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Critical Cases -->
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card stat-card shadow-sm h-100 border-start border-4" style="border-color: #6f42c1 !important;">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Critical Cases (Live)</p>
+                                <h3 class="fw-bold mb-0 text-dark">7</h3>
+                            </div>
+                            <div class="icon-box text-white" style="background-color: #6f42c1;">
+                                <i class="bi bi-exclamation-octagon-fill pulse"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section (Placeholders) -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h6 class="fw-bold">Emergency Statistics</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-placeholder"><i class="bi bi-bar-chart-fill me-2"></i> Bar Chart Placeholder</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h6 class="fw-bold">Hospital Bed Availability</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-placeholder"><i class="bi bi-pie-chart-fill me-2"></i> Pie/Donut Chart Placeholder</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                            <h6 class="fw-bold">Ambulance Status</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-placeholder"><i class="bi bi-graph-up me-2"></i> Line Chart Placeholder</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table and Quick Actions Row -->
+            <div class="row g-4">
+                
+                <!-- Recent Emergencies Table -->
+                <div class="col-xl-9 col-lg-8">
+                    <div class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-header bg-white border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center">
+                            <h5 class="fw-bold mb-0">Recent Emergency Requests</h5>
+                            <button class="btn btn-sm btn-outline-primary">View All</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-custom table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="ps-4">ID</th>
+                                            <th>Patient Name</th>
+                                            <th>Emergency Type</th>
+                                            <th>Severity</th>
+                                            <th>Assigned Hospital</th>
+                                            <th>Ambulance</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="ps-4 fw-bold text-primary">#EM-1042</td>
+                                            <td>Rahul Sharma</td>
+                                            <td>Cardiac Arrest</td>
+                                            <td><span class="badge bg-danger">Critical</span></td>
+                                            <td>City General Hospital</td>
+                                            <td>AMB-04</td>
+                                            <td><span class="badge bg-warning text-dark">En Route</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="ps-4 fw-bold text-primary">#EM-1041</td>
+                                            <td>Priya Singh</td>
+                                            <td>Severe Trauma</td>
+                                            <td><span class="badge bg-danger">Critical</span></td>
+                                            <td>Lifeline Care</td>
+                                            <td>AMB-12</td>
+                                            <td><span class="badge bg-info text-dark">Hospital Reached</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="ps-4 fw-bold text-primary">#EM-1040</td>
+                                            <td>Amit Patel</td>
+                                            <td>Asthma Attack</td>
+                                            <td><span class="badge bg-warning text-dark">High</span></td>
+                                            <td>Metro Care Unit</td>
+                                            <td>AMB-02</td>
+                                            <td><span class="badge bg-success">Completed</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="ps-4 fw-bold text-primary">#EM-1039</td>
+                                            <td>Neha Gupta</td>
+                                            <td>Minor Burn</td>
+                                            <td><span class="badge bg-primary">Low</span></td>
+                                            <td>Suburban Clinic</td>
+                                            <td>-</td>
+                                            <td><span class="badge bg-secondary">Pending</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="col-xl-3 col-lg-4">
+                    <div class="card border-0 shadow-sm rounded-4 h-100 bg-primary text-white">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold mb-4"><i class="bi bi-lightning-charge-fill text-warning me-2"></i> Quick Actions</h5>
+                            <div class="d-grid gap-3">
+                                <button class="btn btn-light text-primary text-start fw-bold shadow-sm py-2">
+                                    <i class="bi bi-hospital me-2"></i> Add New Hospital
+                                </button>
+                                <button class="btn btn-light text-primary text-start fw-bold shadow-sm py-2">
+                                    <i class="bi bi-truck me-2"></i> Register Ambulance
+                                </button>
+                                <button class="btn btn-light text-primary text-start fw-bold shadow-sm py-2">
+                                    <i class="bi bi-file-earmark-bar-graph me-2"></i> Generate Reports
+                                </button>
+                                <button class="btn btn-light text-primary text-start fw-bold shadow-sm py-2">
+                                    <i class="bi bi-people-fill me-2"></i> Manage Users
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-white border-top py-3 mt-auto">
+            <div class="container-fluid px-4 text-center text-md-start">
+                <small class="text-muted">&copy; 2026 MedAlert AI System. All rights reserved. Powered by Google Gemini AI.</small>
+            </div>
+        </footer>
+    </main>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Sidebar Toggle Script -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const sidebar = document.getElementById("sidebar");
+            const sidebarToggle = document.getElementById("sidebarToggle");
+            const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+            const toggleSidebar = () => {
+                sidebar.classList.toggle("show");
+                sidebarOverlay.classList.toggle("show");
+            };
+
+            sidebarToggle.addEventListener("click", toggleSidebar);
+            sidebarOverlay.addEventListener("click", toggleSidebar);
+        });
+    </script>
+</body>
+</html>
