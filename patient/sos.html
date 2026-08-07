@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency SOS | MedAlert AI</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        /* Specific styles for the giant SOS button */
+        .sos-btn-giant {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            box-shadow: 0 10px 30px rgba(220, 53, 69, 0.5);
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            border: 8px solid #ffb3b3;
+        }
+        .sos-btn-giant:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.8);
+        }
+        .sos-pulse {
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+            70% { box-shadow: 0 0 0 30px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+        .map-container {
+            height: 300px;
+            width: 100%;
+            border-radius: 0.5rem;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Minimal Navbar for Emergency Page -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="dashboard.html">
+                <i class="bi bi-arrow-left-circle me-2"></i> Back to Dashboard
+            </a>
+            <span class="navbar-text text-white fw-bold">
+                <i class="bi bi-heart-pulse-fill me-1"></i> MedAlert AI Emergency System
+            </span>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-4">
+        
+        <!-- Alerts Container -->
+        <div id="sosAlertContainer"></div>
+
+        <!-- Top Section: Input & SOS Trigger -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-lg-8 col-md-10 text-center">
+                <h2 class="text-danger fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill"></i> Trigger Emergency Response</h2>
+                <p class="text-muted mb-4">Please describe the medical emergency. You can type it out or use your voice. Then press the SOS button to alert AI and nearby hospitals immediately.</p>
+                
+                <div class="card shadow-sm border-0 rounded-4 mb-4">
+                    <div class="card-body p-4">
+                        <div class="mb-3 text-start">
+                            <label for="emergencyDescription" class="form-label fw-bold text-dark">Emergency Description</label>
+                            <div class="input-group">
+                                <textarea class="form-control bg-light" id="emergencyDescription" rows="3" placeholder="E.g., Patient is experiencing severe chest pain and shortness of breath..."></textarea>
+                                <button class="btn btn-secondary" type="button" id="micBtn" title="Use Voice Input">
+                                    <i class="bi bi-mic fs-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Giant SOS Button -->
+                <div class="d-flex justify-content-center my-4">
+                    <button id="sosBtn" class="btn btn-danger sos-btn-giant sos-pulse text-white">
+                        <span>SOS</span>
+                        <i class="bi bi-broadcast fs-4 mt-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Loader for AI processing -->
+        <div class="text-center d-none my-4" id="aiLoader">
+            <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Processing...</span>
+            </div>
+            <h5 class="text-danger mt-3 fw-bold pulse-text">Analyzing Emergency & Finding Nearest Hospital...</h5>
+        </div>
+
+        <!-- Results Section (Cards) -->
+        <div class="row g-4">
+            
+            <!-- Current Location Map Card -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100">
+                    <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                        <h6 class="fw-bold text-secondary"><i class="bi bi-geo-alt-fill text-primary me-2"></i>Current Location</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="mapContainer" class="map-container shadow-sm border">
+                            <span class="text-muted"><i class="bi bi-map"></i> Map will load here</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Analysis Result Container (Populated by gemini.js) -->
+            <div class="col-lg-4 col-md-6">
+                <div id="aiResultContainer" class="h-100 d-none">
+                    <!-- Data injected by renderAICard() -->
+                    <!-- Will contain: Emergency Type, Severity, Priority, Department, Recommended Action (ai_summary) -->
+                </div>
+            </div>
+
+            <!-- Assigned Hospital & Status Container (Populated by sos.js) -->
+            <div class="col-lg-4 col-md-12">
+                <div id="emergencyStatusContainer" class="h-100 d-none">
+                    <!-- Data injected by displayEmergencyStatus() -->
+                    <!-- Will contain: Hospital Name, Distance, ETA, Status -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Google Maps API (Replace YOUR_API_KEY with actual key in production) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
+    
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Application Modules -->
+    <script type="module" src="../js/maps.js"></script>
+    <script type="module" src="../js/gemini.js"></script>
+    <script type="module" src="../js/sos.js"></script>
+    
+    <script>
+        // Initialize Map once DOM is loaded and Google Maps API is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Default center before fetching user location
+            const defaultLat = 19.0760; // Example: Mumbai
+            const defaultLng = 72.8777;
+            
+            // Assuming initMap is exported and accessible globally or we can import it 
+            // In a strict module setup, this initialization is often handled inside maps.js or sos.js
+            import('../js/maps.js').then(module => {
+                if (typeof module.initMap === 'function') {
+                    module.initMap('mapContainer', defaultLat, defaultLng);
+                    
+                    // Attempt to pre-fetch and update user location on load
+                    module.getUserLocation().then(loc => {
+                        module.setPatientMarker(loc.lat, loc.lng);
+                    }).catch(err => console.warn("Waiting for SOS click to get location: ", err));
+                }
+            });
+        });
+    </script>
+</body>
+</html>
