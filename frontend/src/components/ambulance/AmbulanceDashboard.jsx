@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import TiltCard from '../TiltCard';
 import RealMapTracker from '../patient/RealMapTracker';
+import socket from '../../services/socket';
 
 export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   const [sirenActive, setSirenActive] = useState(false);
@@ -62,14 +63,14 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     baseHospital: driverUser?.baseHospital || 'City Cardiac Institute'
   };
 
-  // Active Emergency Case Data
+  // Active Emergency Case Data (dynamic state)
   const [emergencyCase, setEmergencyCase] = useState({
     id: 'SOS-849120',
     priority: 'RED',
     patientName: 'Alex Johnson',
     ageGender: '62yo Male',
     location: '100ft Road, Indiranagar, Sector 4',
-    condition: 'Acute Myocardial Infarction (Cardiac)',
+    condition: 'Acute Myocardial Infarction (STEMI)',
     allergies: 'Penicillin, Latex',
     vitals: {
       heartRate: 112,
@@ -87,16 +88,52 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     contactPhone: '+1 (555) 392-0194'
   });
 
-  // Dynamic speed fluctuation for realistic telemetry
+  // Fetch dynamic active emergency from backend REST API
+  useEffect(() => {
+    fetch('http://localhost:5000/api/sos/active')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.sos) {
+          setEmergencyCase(prev => ({ ...prev, ...data.sos }));
+        }
+      })
+      .catch(err => console.log('Backend connection notice:', err));
+
+    // Listen for WebSocket emergency broadcasts
+    socket.on('sos:broadcast', (newSos) => {
+      setEmergencyCase(prev => ({ ...prev, ...newSos }));
+    });
+
+    // Listen for WebSocket doctor medication pre-approvals
+    socket.on('doctor:medication_order', (order) => {
+      setLiveTranscript(`DOCTOR ORDER: Approved ${order.medication} (${order.dosage}) by ${order.doctorName}`);
+    });
+
+    return () => {
+      socket.off('sos:broadcast');
+      socket.off('doctor:medication_order');
+    };
+  }, []);
+
+  // Dynamic speed fluctuation & WebSocket real-time telemetry stream
   useEffect(() => {
     const interval = setInterval(() => {
       setSpeed(prev => {
         const delta = Math.floor(Math.random() * 7) - 3;
-        return Math.min(85, Math.max(45, prev + delta));
+        const newSpeed = Math.min(85, Math.max(45, prev + delta));
+        
+        // Emit live telemetry over WebSockets to Backend & Doctor Portal
+        socket.emit('ambulance:telemetry', {
+          speed: newSpeed,
+          unit: driverInfo.id,
+          greenCorridor
+        });
+
+        return newSpeed;
       });
     }, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [greenCorridor, driverInfo.id]);
 
   // Web Audio Siren Synthesizer
   useEffect(() => {
@@ -157,9 +194,16 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     };
   }, []);
 
-  // Broadcast helper
+  // Broadcast helper (BroadcastChannel + WebSockets)
   const broadcastTranscript = (text) => {
     setLiveTranscript(text);
+    
+    // Broadcast via WebSockets to Backend & Doctor Portal
+    socket.emit('ptt:transcript', {
+      text: text,
+      sender: `${driverInfo.id} (${driverInfo.name})`
+    });
+
     if (radioChannelRef.current) {
       radioChannelRef.current.postMessage({
         type: 'TRANSCRIPT',
@@ -173,6 +217,8 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   const handlePttStart = async () => {
     setIsTalking(true);
     setLiveTranscript('Listening... Speak now into microphone');
+
+    socket.emit('ptt:start', { sender: `${driverInfo.id} (${driverInfo.name})` });
 
     if (radioChannelRef.current) {
       radioChannelRef.current.postMessage({ 
@@ -237,14 +283,24 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && radioChannelRef.current) {
+        if (e.data.size > 0) {
           const reader = new FileReader();
           reader.onloadend = () => {
-            radioChannelRef.current.postMessage({
-              type: 'AUDIO_CHUNK',
-              audio: reader.result,
+            const dataUrl = reader.result;
+            
+            // Send to Socket.io WebSockets
+            socket.emit('ptt:audio_chunk', {
+              audio: dataUrl,
               sender: `${driverInfo.id} (${driverInfo.name})`
             });
+
+            if (radioChannelRef.current) {
+              radioChannelRef.current.postMessage({
+                type: 'AUDIO_CHUNK',
+                audio: dataUrl,
+                sender: `${driverInfo.id} (${driverInfo.name})`
+              });
+            }
           };
           reader.readAsDataURL(e.data);
         }
@@ -259,6 +315,8 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   // Handle Release Push To Talk
   const handlePttEnd = () => {
     setIsTalking(false);
+
+    socket.emit('ptt:end', { sender: `${driverInfo.id} (${driverInfo.name})` });
 
     if (speechFallbackTimerRef.current) {
       clearInterval(speechFallbackTimerRef.current);
@@ -551,7 +609,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                     <Navigation className="w-6 h-6 text-[#D9532F]" />
                     Live Navigation & Traffic Pre-emption
                   </h2>
-                  <p className="text-xs text-[#5F6B63] mt-0.5">Route: Indiranagar 100ft Road ➔ {emergencyCase.hospital.name}</p>
+                  <p className="text-xs text-[#5F6B63] mt-0.5">Route: Indiranagar 100ft Road ➔ {emergencyCase.hospital?.name || 'City Cardiac Institute'}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -576,7 +634,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
                 <div className="bg-[#FAF9F6] p-4 rounded-2xl border border-[#E5E2D9] space-y-1">
                   <span className="text-xs font-bold text-gray-500 uppercase">Estimated ETA</span>
-                  <p className="text-2xl font-bold font-mono text-[#0C4A3B]">6 mins</p>
+                  <p className="text-2xl font-bold font-mono text-[#0C4A3B]">{emergencyCase.telemetry?.eta || '3.4 min'}</p>
                   <span className="text-[10px] text-gray-400">Green Corridor Active</span>
                 </div>
 
@@ -619,11 +677,11 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                 </div>
 
                 <a
-                  href={`tel:${emergencyCase.hospital.doctorPhone}`}
+                  href={`tel:${emergencyCase.hospital?.doctorPhone || '+15550192831'}`}
                   className="bg-[#0C4A3B] hover:bg-[#08362B] text-white font-bold px-5 py-3 rounded-2xl text-xs flex items-center gap-2 shadow text-decoration-none"
                 >
                   <Stethoscope className="w-4 h-4 text-[#72DFB4]" />
-                  <span>Call Lead Physician ({emergencyCase.hospital.doctor})</span>
+                  <span>Call Lead Physician ({emergencyCase.hospital?.doctor || 'Dr. Sarah Jenkins'})</span>
                 </a>
               </div>
 
@@ -638,16 +696,16 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                       AI SHOCK INDEX & DETERIORATION TELEMETRY
                     </span>
                     <h4 className="text-sm font-bold text-white">
-                      Shock Index Score: <strong className="text-yellow-300 font-mono">0.79</strong> (HR 112 / Systolic BP 142)
+                      Shock Index Score: <strong className="text-yellow-300 font-mono">{emergencyCase.vitals?.shockIndex || 0.79}</strong> (HR 112 / Systolic BP 142)
                     </h4>
                   </div>
                 </div>
 
                 <div className="text-left sm:text-right">
                   <span className="bg-[#D9532F] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                    ⚡ CARDIOGENIC SHOCK RISK: ELEVATED
+                    {emergencyCase.vitals?.shockStatus || '⚡ CARDIOGENIC SHOCK RISK: ELEVATED'}
                   </span>
-                  <span className="text-[10px] text-emerald-100 block mt-0.5">Calculated in real-time by MedAlert AI</span>
+                  <span className="text-[10px] text-emerald-100 block mt-0.5">Calculated in real-time by MedAlert AI Backend</span>
                 </div>
               </div>
 
@@ -658,7 +716,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                     <span className="flex items-center gap-1.5"><Heart className="w-4 h-4 text-red-600 animate-pulse" /> Heart Rate</span>
                     <span className="bg-red-200 text-red-800 px-2 py-0.5 rounded text-[10px]">ELEVATED</span>
                   </div>
-                  <div className="text-3xl font-bold font-mono text-red-900">{emergencyCase.vitals.heartRate} <span className="text-sm text-red-700">BPM</span></div>
+                  <div className="text-3xl font-bold font-mono text-red-900">{emergencyCase.vitals?.heartRate || 112} <span className="text-sm text-red-700">BPM</span></div>
                   <p className="text-[11px] text-red-700">Sinus Tachycardia detected</p>
                 </div>
 
@@ -667,7 +725,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                     <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 text-blue-600" /> Blood Pressure</span>
                     <span className="bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-[10px]">STAGE-1</span>
                   </div>
-                  <div className="text-3xl font-bold font-mono text-blue-900">{emergencyCase.vitals.bp} <span className="text-sm text-blue-700">mmHg</span></div>
+                  <div className="text-3xl font-bold font-mono text-blue-900">{emergencyCase.vitals?.bp || '142/90'} <span className="text-sm text-blue-700">mmHg</span></div>
                   <p className="text-[11px] text-blue-700">Systolic elevated</p>
                 </div>
 
@@ -676,7 +734,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                     <span className="flex items-center gap-1.5"><Wind className="w-4 h-4 text-emerald-600" /> Oxygen Sat.</span>
                     <span className="bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded text-[10px]">NORMAL</span>
                   </div>
-                  <div className="text-3xl font-bold font-mono text-emerald-900">{emergencyCase.vitals.spo2}%</div>
+                  <div className="text-3xl font-bold font-mono text-emerald-900">{emergencyCase.vitals?.spo2 || 94}%</div>
                   <p className="text-[11px] text-emerald-700">O2 Mask 4L/min active</p>
                 </div>
 
@@ -685,7 +743,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                     <span className="flex items-center gap-1.5"><Thermometer className="w-4 h-4 text-amber-600" /> Resp Rate</span>
                     <span className="bg-amber-200 text-amber-800 px-2 py-0.5 rounded text-[10px]">RPM</span>
                   </div>
-                  <div className="text-3xl font-bold font-mono text-amber-900">{emergencyCase.vitals.respRate} <span className="text-sm text-amber-700">/min</span></div>
+                  <div className="text-3xl font-bold font-mono text-amber-900">{emergencyCase.vitals?.respRate || 22} <span className="text-sm text-amber-700">/min</span></div>
                   <p className="text-[11px] text-amber-700">Tachypnea present</p>
                 </div>
               </div>
@@ -730,7 +788,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                     <Radio className="w-6 h-6 text-[#0C4A3B]" />
                     Hospital ER Radio & Push-To-Talk Voice Link
                   </h2>
-                  <p className="text-xs text-[#5F6B63] mt-0.5">Encrypted channel to {emergencyCase.hospital.doctor}</p>
+                  <p className="text-xs text-[#5F6B63] mt-0.5">Encrypted channel to {emergencyCase.hospital?.doctor || 'Dr. Sarah Jenkins'}</p>
                 </div>
                 <span className="text-xs font-mono font-bold bg-[#E8F0EC] text-[#0C4A3B] px-3 py-1 rounded-full">Freq: 462.775 MHz</span>
               </div>
@@ -739,8 +797,8 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
               <div className="bg-[#1C2B22] text-white p-6 rounded-3xl space-y-4 border border-[#0C4A3B]">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/5 p-5 rounded-2xl border border-white/10">
                   <div className="space-y-1 text-center sm:text-left">
-                    <p className="text-sm font-semibold text-white">Direct Channel to ER Lead ({emergencyCase.hospital.doctor})</p>
-                    <p className="text-xs text-gray-300">Press & hold button to stream live paramedic voice and real-time speech-to-text.</p>
+                    <p className="text-sm font-semibold text-white">Direct Channel to ER Lead ({emergencyCase.hospital?.doctor || 'Dr. Sarah Jenkins'})</p>
+                    <p className="text-xs text-gray-300">Press & hold button to stream live paramedic voice and real-time speech-to-text over WebSockets.</p>
                   </div>
 
                   <button
@@ -960,7 +1018,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                       <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5 text-red-500 animate-pulse" /> Heart Rate</span>
                       <span className="text-[9px] bg-red-100 px-1 py-0.2 rounded font-bold">HIGH</span>
                     </div>
-                    <div className="text-xl font-bold font-mono text-red-800">{emergencyCase.vitals.heartRate} <span className="text-xs text-red-600">BPM</span></div>
+                    <div className="text-xl font-bold font-mono text-red-800">{emergencyCase.vitals?.heartRate || 112} <span className="text-xs text-red-600">BPM</span></div>
                   </div>
 
                   <div className="bg-blue-50/80 p-3 rounded-2xl border border-blue-200 space-y-0.5">
@@ -968,7 +1026,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                       <span className="flex items-center gap-1"><Activity className="w-3.5 h-3.5 text-blue-500" /> Blood Press.</span>
                       <span className="text-[9px] bg-blue-100 px-1 py-0.2 rounded font-bold">SYS</span>
                     </div>
-                    <div className="text-xl font-bold font-mono text-blue-900">{emergencyCase.vitals.bp} <span className="text-xs text-blue-700">mmHg</span></div>
+                    <div className="text-xl font-bold font-mono text-blue-900">{emergencyCase.vitals?.bp || '142/90'} <span className="text-xs text-blue-700">mmHg</span></div>
                   </div>
 
                   <div className="bg-emerald-50/80 p-3 rounded-2xl border border-emerald-200 space-y-0.5">
@@ -976,7 +1034,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                       <span className="flex items-center gap-1"><Wind className="w-3.5 h-3.5 text-emerald-600" /> SpO2</span>
                       <span className="text-[9px] bg-emerald-100 px-1 py-0.2 rounded font-bold">STABLE</span>
                     </div>
-                    <div className="text-xl font-bold font-mono text-emerald-900">{emergencyCase.vitals.spo2}%</div>
+                    <div className="text-xl font-bold font-mono text-emerald-900">{emergencyCase.vitals?.spo2 || 94}%</div>
                   </div>
 
                   <div className="bg-amber-50/80 p-3 rounded-2xl border border-amber-200 space-y-0.5">
@@ -984,7 +1042,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                       <span className="flex items-center gap-1"><Thermometer className="w-3.5 h-3.5 text-amber-600" /> Resp Rate</span>
                       <span className="text-[9px] bg-amber-100 px-1 py-0.2 rounded font-bold">RPM</span>
                     </div>
-                    <div className="text-xl font-bold font-mono text-amber-900">{emergencyCase.vitals.respRate} <span className="text-xs text-amber-700">/min</span></div>
+                    <div className="text-xl font-bold font-mono text-amber-900">{emergencyCase.vitals?.respRate || 22} <span className="text-xs text-amber-700">/min</span></div>
                   </div>
                 </div>
 
@@ -1011,9 +1069,9 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                 </div>
 
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-[#1C2B22]">{emergencyCase.hospital.name}</h4>
-                  <p className="text-xs text-[#0C4A3B] font-semibold">{emergencyCase.hospital.bed}</p>
-                  <p className="text-xs text-[#5F6B63]">{emergencyCase.hospital.address}</p>
+                  <h4 className="text-sm font-bold text-[#1C2B22]">{emergencyCase.hospital?.name || 'City Cardiac Institute'}</h4>
+                  <p className="text-xs text-[#0C4A3B] font-semibold">{emergencyCase.hospital?.bed || 'Cardiology Bed #4 (Locked)'}</p>
+                  <p className="text-xs text-[#5F6B63]">{emergencyCase.hospital?.address || '45 Healthcare Boulevard'}</p>
                 </div>
               </div>
 

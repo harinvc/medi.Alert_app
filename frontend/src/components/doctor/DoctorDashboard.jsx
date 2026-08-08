@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import TiltCard from '../TiltCard';
 import RealMapTracker from '../patient/RealMapTracker';
+import socket from '../../services/socket';
 
 export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
   const [selectedCaseId, setSelectedCaseId] = useState('case-1');
@@ -37,7 +38,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
   const [incomingAudio, setIncomingAudio] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState('Ambulance Unit #04');
   const [liveTranscript, setLiveTranscript] = useState('');
-  const [activeTab, setActiveTab] = useState('active_triage'); // 'active_triage', 'radio', 'beds', 'queue', 'overview'
+  const [activeTab, setActiveTab] = useState('active_triage');
 
   const [protocolExecuted, setProtocolExecuted] = useState({
     bedLocked: true,
@@ -53,9 +54,8 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
     regNo: doctorUser?.doctorRegNo || 'MC-984029-NY'
   };
 
-  // Real-time Push to Talk BroadcastChannel listener for incoming paramedic audio & speech transcript
+  // Real-time Push to Talk WebSockets + BroadcastChannel listener for incoming paramedic audio & speech transcript
   useEffect(() => {
-    let channel = null;
     let audioQueue = [];
     let isPlaying = false;
 
@@ -72,6 +72,33 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
       audio.play().catch(() => playNextChunk());
     };
 
+    // Socket.io Real-Time Event Handlers
+    socket.on('ptt:incoming_start', (data) => {
+      setIncomingAudio(true);
+      if (data?.sender) setActiveSpeaker(data.sender);
+    });
+
+    socket.on('ptt:transcript_stream', (data) => {
+      if (data?.text) setLiveTranscript(data.text);
+    });
+
+    socket.on('ptt:audio_chunk', (data) => {
+      setIncomingAudio(true);
+      if (data?.sender) setActiveSpeaker(data.sender);
+      if (data?.audio) {
+        audioQueue.push(data.audio);
+        if (!isPlaying) playNextChunk();
+      }
+    });
+
+    socket.on('ptt:incoming_end', () => {
+      setTimeout(() => {
+        setIncomingAudio(false);
+      }, 1800);
+    });
+
+    // Fallback BroadcastChannel
+    let channel = null;
     try {
       channel = new BroadcastChannel('medalert_er_radio');
       channel.onmessage = (event) => {
@@ -97,11 +124,15 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
     }
 
     return () => {
+      socket.off('ptt:incoming_start');
+      socket.off('ptt:transcript_stream');
+      socket.off('ptt:audio_chunk');
+      socket.off('ptt:incoming_end');
       if (channel) channel.close();
     };
   }, []);
 
-  // Mock Incoming Emergency Cases Queue
+  // Mock Incoming Emergency Cases Queue (Dynamic Backend Sync)
   const [cases, setCases] = useState([
     {
       id: 'case-1',
@@ -165,7 +196,46 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
     { id: 8, name: 'Bed #8', status: 'Available', patient: null, type: 'General' }
   ]);
 
+  // Fetch ER Beds status from REST API
+  useEffect(() => {
+    fetch('http://localhost:5000/api/beds/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.beds) {
+          setBeds(data.beds);
+        }
+      })
+      .catch(err => console.log('Backend beds notice:', err));
+  }, []);
+
   const activeCase = cases.find(c => c.id === selectedCaseId) || cases[0];
+
+  // Doctor 1-Click Medication Approval Helper
+  const handleApproveMedication = async (medication, dosage) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/doctor/protocol', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctorName: doctorInfo.name,
+          medication,
+          dosage,
+          bedId: activeCase.bedAssigned
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLiveTranscript(`[ORDER SENT TO PARAMEDIC]: Approved ${medication} (${dosage})`);
+      }
+    } catch (err) {
+      console.warn('Backend API connection notice, running local broadcast:', err);
+      try {
+        const ch = new BroadcastChannel('medalert_er_radio');
+        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: Approved ${medication} (${dosage}).`, sender: doctorInfo.name });
+        ch.close();
+      } catch (e) {}
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F8F7F4] text-[#1C2B22] flex flex-col justify-between selection:bg-[#0C4A3B]/15 selection:text-[#0C4A3B]">
@@ -193,7 +263,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                 <div className="flex items-center gap-2">
                   <span className="font-serif-heading text-lg font-bold text-white tracking-tight">Hospital ER Portal</span>
                   <span className="text-[10px] bg-[#72DFB4] text-[#0C4A3B] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono shadow-sm">
-                    LIVE TRIAGE COMMAND
+                    LIVE WEBSOCKETS COMMAND
                   </span>
                 </div>
                 <p className="text-xs text-emerald-100 hidden md:block">{doctorInfo.name} • {doctorInfo.title}</p>
@@ -373,7 +443,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                   <span className="font-bold uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-[#72DFB4]" /> Automated AI Triage Analysis
                   </span>
-                  <span>Synced Live</span>
+                  <span>Synced Live via WebSockets</span>
                 </div>
                 <p className="text-sm leading-relaxed text-gray-100">{activeCase.aiSummary}</p>
               </div>
@@ -382,7 +452,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
               <div className="bg-[#FAF9F6] p-4.5 rounded-2xl border border-[#E5E2D9] space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#0C4A3B] flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#0C4A3B]" /> AI Emergency Pre-Arrival Medication Pre-Approvals
+                    <Sparkles className="w-4 h-4 text-[#0C4A3B]" /> AI Emergency Pre-Arrival Medication Orders
                   </span>
                   <span className="text-[10px] font-mono bg-[#E8F0EC] text-[#0C4A3B] font-bold px-2 py-0.5 rounded">
                     DIRECT PARAMEDIC BROADCAST
@@ -393,11 +463,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                   <button
                     onClick={() => {
                       setProtocolExecuted(prev => ({ ...prev, heparinApproved: true }));
-                      try {
-                        const ch = new BroadcastChannel('medalert_er_radio');
-                        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: IV Heparin 5,000 Units protocol APPROVED by ER Lead.`, sender: `Dr. Sarah Jenkins` });
-                        ch.close();
-                      } catch(e) {}
+                      handleApproveMedication('Stat IV Heparin', '5,000 Units');
                     }}
                     className="p-3 rounded-xl bg-white border border-[#0C4A3B]/30 hover:bg-[#E8F0EC] transition-all font-semibold text-[#0C4A3B] flex items-center gap-2 cursor-pointer text-left"
                   >
@@ -410,11 +476,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
 
                   <button
                     onClick={() => {
-                      try {
-                        const ch = new BroadcastChannel('medalert_er_radio');
-                        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: Sublingual Nitroglycerin 0.4mg APPROVED for chest pain relief.`, sender: `Dr. Sarah Jenkins` });
-                        ch.close();
-                      } catch(e) {}
+                      handleApproveMedication('Sublingual Nitroglycerin', '0.4mg Tab');
                     }}
                     className="p-3 rounded-xl bg-white border border-[#0C4A3B]/30 hover:bg-[#E8F0EC] transition-all font-semibold text-[#0C4A3B] flex items-center gap-2 cursor-pointer text-left"
                   >
@@ -428,11 +490,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                   <button
                     onClick={() => {
                       setProtocolExecuted(prev => ({ ...prev, labsOrdered: true }));
-                      try {
-                        const ch = new BroadcastChannel('medalert_er_radio');
-                        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: Stat Cardiac Troponin I Lab Panel ordered for immediate arrival.`, sender: `Dr. Sarah Jenkins` });
-                        ch.close();
-                      } catch(e) {}
+                      handleApproveMedication('Stat Troponin I Lab Panel', 'High-Assay');
                     }}
                     className="p-3 rounded-xl bg-white border border-[#0C4A3B]/30 hover:bg-[#E8F0EC] transition-all font-semibold text-[#0C4A3B] flex items-center gap-2 cursor-pointer text-left"
                   >
