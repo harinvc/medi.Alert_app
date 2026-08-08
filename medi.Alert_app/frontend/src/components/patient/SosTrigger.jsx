@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   Mic, 
@@ -12,17 +12,51 @@ import {
   Activity,
   Ambulance,
   Hospital,
-  Users
+  Users,
+  Heart
 } from 'lucide-react';
 import TiltCard from '../TiltCard';
+import socket from '../../services/socket';
 
-export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) {
+export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, medicalProfile }) {
   const [symptomText, setSymptomText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeSOS, setActiveSOS] = useState(null);
-  const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: 'MG Road, Indiranagar, Sector 4' });
+  const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: '100ft Road, Indiranagar, Sector 4' });
+  const [cprCount, setCprCount] = useState(1);
+
+  // CPR Metronome rhythm counter (100 BPM pacing)
+  useEffect(() => {
+    if (!activeSOS) return;
+    const interval = setInterval(() => {
+      setCprCount((prev) => (prev % 4) + 1);
+    }, 550);
+    return () => clearInterval(interval);
+  }, [activeSOS]);
+
+  // Fetch initial active SOS from backend if exists
+  useEffect(() => {
+    fetch('http://localhost:5000/api/sos/active')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.sos) {
+          // Sync backend state
+        }
+      })
+      .catch(err => console.log('Backend connection notice:', err));
+
+    // Listen for WebSocket SOS broadcasts
+    socket.on('sos:broadcast', (sosData) => {
+      setActiveSOS(sosData);
+      if (onEmergencyTriggered) onEmergencyTriggered(sosData);
+    });
+
+    return () => {
+      socket.off('sos:broadcast');
+    };
+  }, [onEmergencyTriggered]);
 
   const handleSimulateGPS = () => {
     setIsLocating(true);
@@ -45,11 +79,47 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
     }, 2200);
   };
 
-  const handleTriggerSOS = (presetText) => {
+  const handleTriggerSOS = async (presetText) => {
     const textToUse = presetText || symptomText || "Emergency SOS Triggered! Immediate Assistance Required.";
     setIsAnalyzing(true);
 
-    setTimeout(() => {
+    try {
+      // Call REST API to create SOS on backend
+      const res = await fetch('http://localhost:5000/api/sos/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symptoms: textToUse,
+          location: location.address,
+          patientName: medicalProfile?.name || 'Alex Johnson',
+          allergies: medicalProfile?.allergies || 'Penicillin, Latex',
+          bloodGroup: medicalProfile?.bloodGroup || 'O+',
+          contactPhone: emergencyContacts?.[0]?.phone || '+1 (555) 392-0194'
+        })
+      });
+
+      const data = await res.json();
+      setIsAnalyzing(false);
+
+      if (data.success && data.sos) {
+        const sosData = {
+          ...data.sos,
+          timestamp: new Date().toLocaleTimeString(),
+          aiAnalysis: {
+            emergency: textToUse.toLowerCase().includes('chest') ? "Acute Myocardial Infarction" : "Severe Trauma / Acute Distress",
+            severity: "Critical",
+            priority: "RED",
+            department: textToUse.toLowerCase().includes('chest') ? "Cardiology ER" : "Emergency Trauma Bay",
+            recommendation: "Immediate Level-1 Dispatch · ER Bed Lock Active"
+          },
+          contactsNotified: (emergencyContacts || []).map(c => c.name)
+        };
+
+        setActiveSOS(sosData);
+        if (onEmergencyTriggered) onEmergencyTriggered(sosData);
+      }
+    } catch (err) {
+      console.warn('Backend API connection notice, running dynamic client fallback:', err);
       setIsAnalyzing(false);
 
       const sosData = {
@@ -79,12 +149,12 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
           address: "45 Healthcare Boulevard",
           distance: "2.5 km"
         },
-        contactsNotified: emergencyContacts.map(c => c.name)
+        contactsNotified: (emergencyContacts || []).map(c => c.name)
       };
 
       setActiveSOS(sosData);
-      onEmergencyTriggered(sosData);
-    }, 1800);
+      if (onEmergencyTriggered) onEmergencyTriggered(sosData);
+    }
   };
 
   return (
@@ -96,7 +166,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
         <div className="relative z-10 space-y-2 max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#72DFB4]/20 text-[#72DFB4] text-xs font-bold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-[#72DFB4] animate-ping"></span>
-            Real-Time AI Emergency Dispatch
+            Real-Time AI Emergency Dispatch (Node Backend Active)
           </div>
           <h2 className="text-3xl sm:text-4xl font-serif-heading font-medium">
             One-Tap SOS Response
@@ -137,17 +207,59 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
                 <Sparkles className="w-4 h-4 text-[#72DFB4]" /> MedAlert AI Triage
               </span>
               <span className="bg-[#D9532F] px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">
-                {activeSOS.aiAnalysis.priority} Priority
+                {activeSOS.aiAnalysis?.priority || 'RED'} Priority
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-gray-400 block text-[10px] uppercase">Detected Condition</span>
-                <span className="font-semibold text-white text-sm">{activeSOS.aiAnalysis.emergency}</span>
+                <span className="font-semibold text-white text-sm">{activeSOS.aiAnalysis?.emergency || activeSOS.condition}</span>
               </div>
               <div>
                 <span className="text-gray-400 block text-[10px] uppercase">Department Match</span>
-                <span className="font-semibold text-white text-sm">{activeSOS.aiAnalysis.department}</span>
+                <span className="font-semibold text-white text-sm">{activeSOS.aiAnalysis?.department || 'Cardiology ER'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Bystander First-Aid Assistant & CPR Metronome */}
+          <div className="bg-[#0C4A3B] text-white p-5 rounded-2xl border border-[#72DFB4]/30 space-y-3 shadow">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <span className="text-xs font-bold text-[#72DFB4] uppercase tracking-wider flex items-center gap-1.5">
+                <Heart className="w-4 h-4 text-red-400 animate-pulse" /> AI Bystander First-Aid Assistant (While Waiting)
+              </span>
+              <span className="text-[10px] bg-white/10 text-emerald-200 px-2 py-0.5 rounded font-mono">100-120 BPM CPR METRONOME</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#D9532F] text-white flex items-center justify-center font-bold text-sm shrink-0 animate-ping">
+                  {cprCount}
+                </div>
+                <div>
+                  <strong className="block text-white text-xs">Chest Compressions</strong>
+                  <span className="text-[11px] text-emerald-100">Push hard & fast at center of chest ({cprCount})</span>
+                </div>
+              </div>
+
+              <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#08362B] text-[#72DFB4] flex items-center justify-center font-bold text-sm shrink-0">
+                  🩸
+                </div>
+                <div>
+                  <strong className="block text-white text-xs">Bleeding Control</strong>
+                  <span className="text-[11px] text-emerald-100">Apply firm pressure with clean cloth</span>
+                </div>
+              </div>
+
+              <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#08362B] text-[#72DFB4] flex items-center justify-center font-bold text-sm shrink-0">
+                  💨
+                </div>
+                <div>
+                  <strong className="block text-white text-xs">Airway Position</strong>
+                  <span className="text-[11px] text-emerald-100">Tilt head back, lift chin slightly</span>
+                </div>
               </div>
             </div>
           </div>
@@ -159,15 +271,17 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
             <div className="bg-[#FAF8F5] p-5 rounded-2xl border border-[#E6E2D8] space-y-3">
               <span className="text-[10px] font-bold text-[#D9532F] uppercase tracking-wider block">Assigned Ambulance</span>
               <div className="flex items-center gap-3">
-                <img src={activeSOS.driver.photo} alt={activeSOS.driver.name} className="w-12 h-12 rounded-xl object-cover border border-[#E6E2D8]" />
+                <div className="w-12 h-12 rounded-xl bg-[#0C4A3B] text-white flex items-center justify-center font-bold text-lg">
+                  🚑
+                </div>
                 <div>
-                  <h4 className="text-sm font-bold text-[#1C2B22]">{activeSOS.driver.name}</h4>
-                  <p className="text-xs text-[#5F6B63]">{activeSOS.driver.vehicleReg}</p>
+                  <h4 className="text-sm font-bold text-[#1C2B22]">{activeSOS.driver?.name || 'Marcus Vance'}</h4>
+                  <p className="text-xs text-[#5F6B63]">{activeSOS.driver?.vehicleReg || 'AMB-104-NYC'}</p>
                 </div>
               </div>
               <div className="pt-2 border-t border-[#EBE7DE] flex items-center justify-between text-xs font-semibold text-[#0C4A3B]">
-                <span>ETA: {activeSOS.driver.eta}</span>
-                <a href={`tel:${activeSOS.driver.phone}`} className="flex items-center gap-1 text-[#D9532F] hover:underline">
+                <span>ETA: {activeSOS.driver?.eta || '3.4 mins'}</span>
+                <a href={`tel:${activeSOS.driver?.phone || '+15553920194'}`} className="flex items-center gap-1 text-[#D9532F] hover:underline">
                   <PhoneCall className="w-3.5 h-3.5" /> Call Driver
                 </a>
               </div>
@@ -176,10 +290,10 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
             {/* Hospital Card */}
             <div className="bg-[#FAF8F5] p-5 rounded-2xl border border-[#E6E2D8] space-y-3">
               <span className="text-[10px] font-bold text-[#0C4A3B] uppercase tracking-wider block">Matched Hospital</span>
-              <h4 className="text-sm font-bold text-[#1C2B22]">{activeSOS.hospital.name}</h4>
-              <p className="text-xs text-[#0C4A3B] font-semibold">{activeSOS.hospital.department}</p>
+              <h4 className="text-sm font-bold text-[#1C2B22]">{activeSOS.hospital?.name || 'City Cardiac Institute'}</h4>
+              <p className="text-xs text-[#0C4A3B] font-semibold">{activeSOS.hospital?.department || activeSOS.hospital?.bed || 'Cardiology ER Bed #4'}</p>
               <div className="pt-2 border-t border-[#EBE7DE] text-xs text-[#5F6B63]">
-                <span>{activeSOS.hospital.distance} away • Route cleared</span>
+                <span>{activeSOS.hospital?.address || '45 Healthcare Boulevard'}</span>
               </div>
             </div>
 
@@ -187,7 +301,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
             <div className="bg-[#FAF8F5] p-5 rounded-2xl border border-[#E6E2D8] space-y-3">
               <span className="text-[10px] font-bold text-[#0C4A3B] uppercase tracking-wider block">Contacts Alerted (SMS Sent)</span>
               <div className="space-y-1.5">
-                {activeSOS.contactsNotified.map((name, idx) => (
+                {(activeSOS.contactsNotified || ['Eleanor Vance (Spouse)', 'Dr. Arthur Pendelton']).map((name, idx) => (
                   <div key={idx} className="flex items-center gap-1.5 text-xs text-[#1C2B22]">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#0C4A3B]" />
                     <span>{name}</span>

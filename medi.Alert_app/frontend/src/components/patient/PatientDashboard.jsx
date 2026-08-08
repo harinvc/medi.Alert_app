@@ -11,7 +11,9 @@ import {
   PhoneCall, 
   Sparkles,
   CheckCircle2,
-  MapPin
+  MapPin,
+  Heart,
+  Droplet
 } from 'lucide-react';
 import SosTrigger from './SosTrigger';
 import LiveAmbulanceTracker from './LiveAmbulanceTracker';
@@ -24,23 +26,49 @@ export default function PatientDashboard({ user, onBackToLanding }) {
   const [activeSOS, setActiveSOS] = useState(null);
 
   // Mock initial emergency contacts
-  const [contacts, setContacts] = useState([
-    { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
-    { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
-  ]);
+  const [contacts, setContacts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medalert_contacts');
+      return (saved && saved !== 'undefined') ? JSON.parse(saved) : [
+        { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
+        { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
+      ];
+    } catch (e) {
+      return [
+        { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
+        { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
+      ];
+    }
+  });
 
   // Dynamic Patient Medical Profile (Sync with user entered name & email)
-  const [medicalProfile, setMedicalProfile] = useState({
-    name: user?.name || 'Alex Johnson',
-    email: user?.email || 'alex.johnson@gmail.com',
-    phone: user?.phone || '+1 (555) 019-2834',
-    bloodGroup: user?.bloodGroup || 'O+',
-    organDonor: true,
-    allergies: 'Severe Penicillin allergy, Latex sensitivity',
-    chronicConditions: 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
-    physicianName: 'Dr. Arthur Pendelton',
-    physicianPhone: '+1 (555) 882-9401'
+  const [medicalProfile, setMedicalProfile] = useState(() => {
+    const defaultProfile = {
+      name: user?.name || 'Alex Johnson',
+      email: user?.email || 'alex.johnson@gmail.com',
+      phone: user?.phone || '+1 (555) 019-2834',
+      bloodGroup: user?.bloodGroup || 'O+',
+      organDonor: true,
+      allergies: 'Severe Penicillin allergy, Latex sensitivity',
+      chronicConditions: 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
+      physicianName: 'Dr. Arthur Pendelton',
+      physicianPhone: '+1 (555) 882-9401'
+    };
+    try {
+      const saved = localStorage.getItem('medalert_profile');
+      return (saved && saved !== 'undefined') ? JSON.parse(saved) : defaultProfile;
+    } catch (e) {
+      return defaultProfile;
+    }
   });
+
+  useEffect(() => {
+    localStorage.setItem('medalert_contacts', JSON.stringify(contacts));
+  }, [contacts]);
+
+  useEffect(() => {
+    localStorage.setItem('medalert_profile', JSON.stringify(medicalProfile));
+  }, [medicalProfile]);
 
   // Sync profile if user prop updates from auth
   useEffect(() => {
@@ -89,52 +117,58 @@ export default function PatientDashboard({ user, onBackToLanding }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#1C2B22] flex flex-col justify-between selection:bg-[#0C4A3B]/15 selection:text-[#0C4A3B]">
+    <div className="min-h-screen bg-[#F8F7F4] text-[#1C2B22] flex flex-col justify-between selection:bg-[#0C4A3B]/15 selection:text-[#0C4A3B]">
       
-      {/* Patient Header Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#FAF8F5]/90 backdrop-blur-md border-b border-[#EBE7DE]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      {/* Sleek Top Header Navigation Bar */}
+      <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={onBackToLanding}
-              className="p-2 rounded-xl text-[#0C4A3B] hover:bg-[#E8F0EC] transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
               title="Return to Main Website"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Landing Page</span>
+              <span className="hidden sm:inline">Landing</span>
             </button>
 
-            <div className="h-6 w-[1px] bg-[#EBE7DE] hidden sm:block"></div>
+            <div className="h-6 w-[1px] bg-white/20"></div>
 
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-[#0C4A3B] text-white flex items-center justify-center shadow">
-                <Activity className="w-5 h-5 text-[#72DFB4]" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-white text-[#0C4A3B] flex items-center justify-center shadow-sm">
+                <Activity className="w-5 h-5 text-[#0C4A3B]" />
               </div>
               <div>
-                <span className="font-serif-heading text-xl font-bold text-[#0C4A3B]">Patient Portal</span>
-                <span className="text-[10px] bg-[#E8F0EC] text-[#0C4A3B] font-bold px-2 py-0.5 rounded ml-2 uppercase">Live SOS Connected</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-serif-heading text-lg font-bold text-white tracking-tight">Patient Portal</span>
+                  <span className="text-[10px] bg-[#72DFB4] text-[#0C4A3B] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono shadow-sm">
+                    LIVE SOS CONNECTED
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-100 hidden md:block">{medicalProfile.name} • {medicalProfile.phone}</p>
               </div>
             </div>
           </div>
 
-          {/* User Name & Profile Badge */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-bold text-[#1C2B22]">{medicalProfile.name}</span>
-              <span className="text-[11px] text-[#5F6B63]">{medicalProfile.email}</span>
-            </div>
+          {/* User Profile & Medical Badges */}
+          <div className="flex items-center gap-2.5">
+            <span className="hidden lg:inline-flex items-center gap-1 bg-white/10 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-white/20">
+              <Droplet className="w-3.5 h-3.5 text-red-400 fill-red-400" />
+              <span>Blood: {medicalProfile.bloodGroup}</span>
+            </span>
 
-            <div className="w-9 h-9 rounded-xl bg-[#E8F0EC] text-[#0C4A3B] font-bold flex items-center justify-center border border-[#0C4A3B]/20">
-              {medicalProfile.name ? medicalProfile.name.charAt(0).toUpperCase() : 'P'}
-            </div>
+            <span className="hidden lg:inline-flex items-center gap-1 bg-white/10 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-white/20">
+              <Heart className="w-3.5 h-3.5 text-[#72DFB4] fill-[#72DFB4]" />
+              <span>Organ Donor</span>
+            </span>
 
             <button
               onClick={onBackToLanding}
-              className="p-2 rounded-full text-gray-400 hover:text-[#D9532F] hover:bg-red-50 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-white/10 hover:bg-red-600 text-white transition-colors cursor-pointer"
               title="Sign Out"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
 
@@ -142,72 +176,72 @@ export default function PatientDashboard({ user, onBackToLanding }) {
       </header>
 
       {/* Main Dashboard Body */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-grow w-full space-y-6 sm:space-y-8 pb-28 sm:pb-12">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-grow w-full space-y-6 pb-28 sm:pb-12">
         
-        {/* Desktop Navigation Tabs (Hidden on mobile) */}
-        <div className="hidden md:flex bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-[#E6E2D8] shadow-sm items-center justify-between gap-1">
+        {/* Clear Tab Navigation Bar */}
+        <div className="hidden md:flex bg-white rounded-3xl p-2 border border-[#E5E2D9] shadow-sm items-center justify-between gap-1.5">
           
           <button
             onClick={() => setActiveTab('sos')}
-            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'sos'
-                ? 'bg-[#D9532F] text-white shadow-md'
-                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF8F5]'
+                ? 'bg-[#D9532F] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>One-Tap SOS</span>
+            <span>🚨 One-Tap SOS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tracking')}
-            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative ${
               activeTab === 'tracking'
-                ? 'bg-[#0C4A3B] text-white shadow-md'
-                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF8F5]'
+                ? 'bg-[#0C4A3B] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Ambulance className="w-4 h-4 text-[#72DFB4]" />
-            <span>Live Tracking</span>
+            <span>🧭 Live Ambulance Tracking</span>
             {activeSOS && (
-              <span className="w-2 h-2 rounded-full bg-[#D9532F] animate-ping absolute top-2 right-2"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D9532F] animate-ping absolute top-2 right-3"></span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab('contacts')}
-            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'contacts'
-                ? 'bg-[#0C4A3B] text-white shadow-md'
-                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF8F5]'
+                ? 'bg-[#0C4A3B] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Emergency Contacts ({contacts.length})</span>
+            <span>👥 Emergency Contacts ({contacts.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'profile'
-                ? 'bg-[#0C4A3B] text-white shadow-md'
-                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF8F5]'
+                ? 'bg-[#0C4A3B] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <UserCheck className="w-4 h-4" />
-            <span>Medical Profile</span>
+            <span>📋 Medical Profile</span>
           </button>
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'history'
-                ? 'bg-[#0C4A3B] text-white shadow-md'
-                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF8F5]'
+                ? 'bg-[#0C4A3B] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>History Log</span>
+            <span>🕒 Emergency History</span>
           </button>
 
         </div>
@@ -217,6 +251,7 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           <SosTrigger 
             onEmergencyTriggered={handleEmergencyTriggered} 
             emergencyContacts={contacts} 
+            medicalProfile={medicalProfile}
           />
         )}
 
@@ -248,8 +283,8 @@ export default function PatientDashboard({ user, onBackToLanding }) {
 
       </main>
 
-      {/* Mobile Bottom App Navigation Bar (Native Mobile App Experience) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#FAF8F5]/95 backdrop-blur-lg border-t border-[#E6E2D8] px-2 py-2 flex items-center justify-around shadow-2xl">
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E5E2D9] px-2 py-2 flex items-center justify-around shadow-xl">
         <button
           onClick={() => setActiveTab('sos')}
           className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition-all ${
@@ -271,9 +306,9 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           <div className={`p-1.5 rounded-full ${activeTab === 'tracking' ? 'bg-[#0C4A3B]/10' : ''}`}>
             <Ambulance className="w-5 h-5" />
           </div>
-          <span>Map GPS</span>
+          <span>Tracker</span>
           {activeSOS && (
-            <span className="w-2 h-2 rounded-full bg-[#D9532F] animate-ping absolute top-1 right-3"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#D9532F] animate-ping absolute top-1 right-3"></span>
           )}
         </button>
 
@@ -315,10 +350,9 @@ export default function PatientDashboard({ user, onBackToLanding }) {
       </div>
 
       {/* Patient Footer */}
-      <footer className="hidden sm:block border-t border-[#EBE7DE] py-6 text-center text-xs text-[#5F6B63]">
+      <footer className="hidden sm:block border-t border-[#E5E2D9] py-4 text-center text-xs text-[#5F6B63] bg-white">
         <p>MedAlert AI Patient Emergency Network • HIPAA & GDPR Secured</p>
       </footer>
-
 
     </div>
   );
