@@ -42,7 +42,8 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
-          // Sync backend state
+          setActiveSOS(data.sos);
+          if (onEmergencyTriggered) onEmergencyTriggered(data.sos);
         }
       })
       .catch(err => console.log('Backend connection notice:', err));
@@ -83,19 +84,21 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
     const textToUse = presetText || symptomText || "Emergency SOS Triggered! Immediate Assistance Required.";
     setIsAnalyzing(true);
 
+    const sosPayload = {
+      symptoms: textToUse,
+      location: location.address,
+      patientName: medicalProfile?.name || 'Alex Johnson',
+      allergies: medicalProfile?.allergies || 'Penicillin, Latex',
+      bloodGroup: medicalProfile?.bloodGroup || 'O+',
+      contactPhone: emergencyContacts?.[0]?.phone || '+1 (555) 392-0194'
+    };
+
     try {
-      // Call REST API to create SOS on backend
-      const res = await fetch('http://localhost:5000/api/sos/create', {
+      // Call REST API to trigger SOS on backend
+      const res = await fetch('http://localhost:5000/api/sos/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symptoms: textToUse,
-          location: location.address,
-          patientName: medicalProfile?.name || 'Alex Johnson',
-          allergies: medicalProfile?.allergies || 'Penicillin, Latex',
-          bloodGroup: medicalProfile?.bloodGroup || 'O+',
-          contactPhone: emergencyContacts?.[0]?.phone || '+1 (555) 392-0194'
-        })
+        body: JSON.stringify(sosPayload)
       });
 
       const data = await res.json();
@@ -119,41 +122,9 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
         if (onEmergencyTriggered) onEmergencyTriggered(sosData);
       }
     } catch (err) {
-      console.warn('Backend API connection notice, running dynamic client fallback:', err);
+      console.error('Backend API connection failed:', err);
       setIsAnalyzing(false);
-
-      const sosData = {
-        id: `SOS-${Math.floor(100000 + Math.random() * 900000)}`,
-        timestamp: new Date().toLocaleTimeString(),
-        symptoms: textToUse,
-        location: location.address,
-        aiAnalysis: {
-          emergency: textToUse.toLowerCase().includes('chest') ? "Acute Myocardial Infarction" : "Severe Trauma / Acute Distress",
-          severity: "Critical",
-          priority: "RED",
-          department: textToUse.toLowerCase().includes('chest') ? "Cardiology ER" : "Emergency Trauma Bay",
-          recommendation: "Immediate Level-1 Dispatch · ER Bed Lock Active"
-        },
-        driver: {
-          name: "Marcus Vance",
-          phone: "+1 (555) 392-0194",
-          licenseNo: "DL-98472910-X",
-          vehicleReg: "AMB-104-NYC",
-          photo: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&q=80&w=200",
-          eta: "3.4 mins",
-          distance: "1.8 km away"
-        },
-        hospital: {
-          name: "City Cardiac & Emergency Institute",
-          department: "Cardiology ER · Bed #4 Reserved",
-          address: "45 Healthcare Boulevard",
-          distance: "2.5 km"
-        },
-        contactsNotified: (emergencyContacts || []).map(c => c.name)
-      };
-
-      setActiveSOS(sosData);
-      if (onEmergencyTriggered) onEmergencyTriggered(sosData);
+      alert('Failed to trigger SOS. Please ensure you have an active connection to the emergency server.');
     }
   };
 

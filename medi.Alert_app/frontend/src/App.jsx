@@ -10,37 +10,32 @@ import Footer from './components/Footer';
 import PatientDashboard from './components/patient/PatientDashboard';
 import AmbulanceDashboard from './components/ambulance/AmbulanceDashboard';
 import DoctorDashboard from './components/doctor/DoctorDashboard';
+import PublicTracker from './components/patient/PublicTracker';
 
 export default function App() {
   const [currentView, setCurrentView] = useState(() => {
-    return localStorage.getItem('medalert_currentView') || 'landing';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('track')) return 'public_tracking';
+    const saved = localStorage.getItem('medalert_currentView');
+    return (saved && saved !== 'public_tracking') ? saved : 'landing';
   });
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('signup');
   const [authRole, setAuthRole] = useState('patient');
 
-  // Active User State
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem('medalert_user');
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : {
-        name: 'Alex Johnson',
-        email: 'alex.johnson@gmail.com',
-        phone: '+1 (555) 019-2834',
-        bloodGroup: 'O+'
-      };
+      return (saved && saved !== 'undefined') ? JSON.parse(saved) : null;
     } catch (e) {
-      return {
-        name: 'Alex Johnson',
-        email: 'alex.johnson@gmail.com',
-        phone: '+1 (555) 019-2834',
-        bloodGroup: 'O+'
-      };
+      return null;
     }
   });
 
   useEffect(() => {
-    localStorage.setItem('medalert_currentView', currentView);
+    if (currentView !== 'public_tracking') {
+      localStorage.setItem('medalert_currentView', currentView);
+    }
   }, [currentView]);
 
   useEffect(() => {
@@ -53,20 +48,20 @@ export default function App() {
     setAuthModalOpen(true);
   };
 
-  const handleAuthSuccess = (role, userDetails) => {
-    if (userDetails) {
-      setUser({
-        name: userDetails.name || userDetails.email?.split('@')[0] || (role === 'doctor' ? 'Dr. Sarah Jenkins' : role === 'ambulance' ? 'Marcus Vance' : 'Patient User'),
-        email: userDetails.email || 'user@medalert.org',
-        phone: userDetails.phone || '+1 (555) 019-2834',
-        bloodGroup: userDetails.bloodGroup || 'O+',
-        licenseNumber: userDetails.licenseNumber || 'DL-98472910-X',
-        vehicleRegNo: userDetails.vehicleRegNo || 'AMB-104-NYC',
-        baseHospital: userDetails.baseHospital || 'City Cardiac Institute',
-        hospitalName: userDetails.hospitalName || 'City Cardiac & Emergency Institute',
-        doctorRegNo: userDetails.doctorRegNo || 'MC-984029-NY',
-        department: userDetails.department || 'Lead Emergency Cardiologist, M.D.'
-      });
+  const handleAuthSuccess = async (role, userDetails) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/auth/demo/${role}`);
+      const data = await res.json();
+      if (data.success && data.user) {
+        setUser(data.user);
+      } else {
+        alert("Failed to retrieve user from backend.");
+        return;
+      }
+    } catch (error) {
+      console.error("Backend auth failed:", error);
+      alert("Cannot connect to backend database. Please ensure the server is running.");
+      return;
     }
 
     if (role === 'patient') {
@@ -77,6 +72,12 @@ export default function App() {
       setCurrentView('doctor_app');
     }
   };
+
+  // If public tracking link is opened
+  if (currentView === 'public_tracking') {
+    const trackId = new URLSearchParams(window.location.search).get('track');
+    return <PublicTracker trackId={trackId} />;
+  }
 
   // If in Patient App View mode
   if (currentView === 'patient_app') {

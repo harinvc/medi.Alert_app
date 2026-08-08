@@ -25,50 +25,21 @@ export default function PatientDashboard({ user, onBackToLanding }) {
   const [activeTab, setActiveTab] = useState('sos'); // 'sos', 'tracking', 'contacts', 'profile', 'history'
   const [activeSOS, setActiveSOS] = useState(null);
 
-  // Mock initial emergency contacts
-  const [contacts, setContacts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('medalert_contacts');
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : [
-        { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
-        { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
-      ];
-    } catch (e) {
-      return [
-        { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
-        { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
-      ];
-    }
+  // Dynamic emergency contacts from DB
+  const [contacts, setContacts] = useState(user?.emergencyContacts || []);
+
+  // Dynamic Patient Medical Profile from DB
+  const [medicalProfile, setMedicalProfile] = useState({
+    name: user?.name || 'Emergency Patient',
+    email: user?.email || 'patient@medalert.org',
+    phone: user?.phone || '+1 (555) 000-0000',
+    bloodGroup: user?.bloodGroup || 'Unknown',
+    organDonor: true,
+    allergies: 'Severe Penicillin allergy, Latex sensitivity',
+    chronicConditions: 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
+    physicianName: 'Dr. Arthur Pendelton',
+    physicianPhone: '+1 (555) 882-9401'
   });
-
-  // Dynamic Patient Medical Profile (Sync with user entered name & email)
-  const [medicalProfile, setMedicalProfile] = useState(() => {
-    const defaultProfile = {
-      name: user?.name || 'Alex Johnson',
-      email: user?.email || 'alex.johnson@gmail.com',
-      phone: user?.phone || '+1 (555) 019-2834',
-      bloodGroup: user?.bloodGroup || 'O+',
-      organDonor: true,
-      allergies: 'Severe Penicillin allergy, Latex sensitivity',
-      chronicConditions: 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
-      physicianName: 'Dr. Arthur Pendelton',
-      physicianPhone: '+1 (555) 882-9401'
-    };
-    try {
-      const saved = localStorage.getItem('medalert_profile');
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : defaultProfile;
-    } catch (e) {
-      return defaultProfile;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('medalert_contacts', JSON.stringify(contacts));
-  }, [contacts]);
-
-  useEffect(() => {
-    localStorage.setItem('medalert_profile', JSON.stringify(medicalProfile));
-  }, [medicalProfile]);
 
   // Sync profile if user prop updates from auth
   useEffect(() => {
@@ -83,33 +54,8 @@ export default function PatientDashboard({ user, onBackToLanding }) {
     }
   }, [user]);
 
-  // Mock emergency history logs
-  const [historyLogs] = useState([
-    {
-      id: 'SOS-849120',
-      date: '2026-07-14',
-      time: '14:22 PM',
-      priority: 'RED',
-      emergencyType: 'Acute Chest Pain / Angina',
-      location: '100ft Road, Indiranagar',
-      hospitalName: 'City Cardiac Institute',
-      department: 'Cardiology ER · Bed #2',
-      responseTime: '5.4 mins',
-      aiSummary: 'Patient presented with sudden onset precordial chest discomfort. Dispatched Ambulance #04 with ECG telemetry. Heparin admin on route.'
-    },
-    {
-      id: 'SOS-301948',
-      date: '2026-05-02',
-      time: '09:15 AM',
-      priority: 'AMBER',
-      emergencyType: 'Acute Asthmatic Bronchospasm',
-      location: 'Halasuru Metro Station',
-      hospitalName: 'St. Jude General Hospital',
-      department: 'Pulmonology ER',
-      responseTime: '6.8 mins',
-      aiSummary: 'Bronchospasm secondary to pollen allergen exposure. Nebulized Albuterol administered during transit.'
-    }
-  ]);
+  // Dynamic emergency history logs from DB
+  const [historyLogs, setHistoryLogs] = useState(user?.medicalHistory || []);
 
   const handleEmergencyTriggered = (sosData) => {
     setActiveSOS(sosData);
@@ -265,6 +211,7 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           <EmergencyContacts 
             contacts={contacts} 
             onUpdateContacts={setContacts} 
+            activeSOS={activeSOS}
           />
         )}
 

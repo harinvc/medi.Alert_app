@@ -132,69 +132,78 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
     };
   }, []);
 
-  // Mock Incoming Emergency Cases Queue (Dynamic Backend Sync)
-  const [cases, setCases] = useState([
-    {
-      id: 'case-1',
-      sosId: 'SOS-849120',
-      severity: 'RED',
-      badgeClass: 'bg-red-500 text-white',
-      title: 'Acute Cardiac Event (STEMI)',
-      patientName: 'Alex Johnson',
-      ageGender: '62yo Male',
-      ambulanceUnit: 'Ambulance #04',
-      driverName: 'Marcus Vance',
-      eta: '3.4 min',
-      bedAssigned: 'Bed #4 (Cardiology ER)',
-      location: '100ft Road, HAL Indiranagar',
-      vitals: { hr: 112, bp: '142/90', spo2: 94, rr: 22 },
-      aiSummary: '62yo M, severe chest pain radiating down left arm. ECG telemetry shows ST-segment elevation. Oxygen 10L/min and Aspirin 300mg administered by paramedic.'
-    },
-    {
-      id: 'case-2',
-      sosId: 'SOS-301948',
-      severity: 'AMBER',
-      badgeClass: 'bg-amber-500 text-white',
-      title: 'High-Impact Tibia Fracture',
-      patientName: 'Rachel Green',
-      ageGender: '28yo Female',
-      ambulanceUnit: 'Ambulance #09',
-      driverName: 'David Miller',
-      eta: '11.2 min',
-      bedAssigned: 'Bed #7 (Orthopedic Trauma)',
-      location: 'Halasuru Metro Corridor',
-      vitals: { hr: 88, bp: '124/82', spo2: 98, rr: 16 },
-      aiSummary: '28yo F, right leg deformity following collision. Splint applied, bleeding controlled, vitals stable.'
-    },
-    {
-      id: 'case-3',
-      sosId: 'SOS-194820',
-      severity: 'GREEN',
-      badgeClass: 'bg-emerald-600 text-white',
-      title: 'Observation Transfer',
-      patientName: 'Robert Paulson',
-      ageGender: '54yo Male',
-      ambulanceUnit: 'Ambulance #12',
-      driverName: 'Elena Rostova',
-      eta: '18.5 min',
-      bedAssigned: 'Ward Bed #12',
-      location: 'Community Health Center',
-      vitals: { hr: 72, bp: '118/78', spo2: 99, rr: 14 },
-      aiSummary: 'Post-op routine transfer for overnight monitoring. Vitals normal, no acute distress.'
-    }
-  ]);
+  // Dynamic Incoming Emergency Cases Queue from Backend
+  const [cases, setCases] = useState([]);
 
-  // ER Bed Floor Plan Map (Beds 1-8)
-  const [beds, setBeds] = useState([
-    { id: 1, name: 'Bed #1', status: 'Occupied', patient: 'Sam W.', type: 'Trauma' },
-    { id: 2, name: 'Bed #2', status: 'Occupied', patient: 'Elena R.', type: 'General' },
-    { id: 3, name: 'Bed #3', status: 'Available', patient: null, type: 'General' },
-    { id: 4, name: 'Bed #4', status: 'Reserved (Locked)', patient: 'Alex Johnson (Incoming)', type: 'Cardiology ER' },
-    { id: 5, name: 'Bed #5', status: 'Occupied', patient: 'Chris P.', type: 'ICU' },
-    { id: 6, name: 'Bed #6', status: 'Sanitizing', patient: null, type: 'Trauma' },
-    { id: 7, name: 'Bed #7', status: 'Reserved (Locked)', patient: 'Rachel Green (Incoming)', type: 'Orthopedic' },
-    { id: 8, name: 'Bed #8', status: 'Available', patient: null, type: 'General' }
-  ]);
+  useEffect(() => {
+    // Attempt to join the hospital's targeted room (simulating auth payload)
+    const mockHospitalId = doctorUser?.hospitalId || '60c72b2f9b1d8b0015a73e44'; // Example MongoDB ObjectId
+    socket.emit('join_hospital', mockHospitalId);
+
+    fetch('http://localhost:5000/api/sos/active')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.sos) {
+          const sos = data.sos;
+          const mappedCase = {
+            id: 'case-1',
+            sosId: sos.id || 'SOS-UNKNOWN',
+            severity: sos.priority || 'RED',
+            badgeClass: sos.priority === 'RED' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white',
+            title: sos.condition || 'Acute Cardiac Event (STEMI)',
+            patientName: sos.patientName || 'Emergency Patient',
+            ageGender: sos.ageGender || 'Unknown',
+            ambulanceUnit: sos.driver?.unit || 'Ambulance #04',
+            driverName: sos.driver?.name || 'Ambulance Driver',
+            eta: sos.telemetry?.eta || 'ETA Unknown',
+            bedAssigned: sos.hospital?.bed || 'Unassigned',
+            location: sos.location || 'Unknown Location',
+            vitals: sos.vitals || { hr: '--', bp: '--/--', spo2: '--', rr: '--' },
+            aiSummary: sos.symptoms || 'No AI summary available'
+          };
+          setCases([mappedCase]);
+        }
+      })
+      .catch(err => console.log('Backend active sos notice:', err));
+
+    const handleNewEmergency = (newSos) => {
+      const mappedCase = {
+        id: 'case-' + Date.now(),
+        sosId: newSos.id || 'SOS-UNKNOWN',
+        severity: newSos.aiTriage?.severity || newSos.priority || 'RED',
+        badgeClass: (newSos.aiTriage?.severity === 'RED' || newSos.priority === 'RED') ? 'bg-red-500 text-white' : 'bg-amber-500 text-white',
+        title: newSos.condition || 'Emergency',
+        patientName: newSos.patientName || 'Emergency Patient',
+        ageGender: newSos.ageGender || 'Unknown',
+        ambulanceUnit: newSos.driver?.unit || 'Ambulance',
+        driverName: newSos.driver?.name || 'Driver',
+        eta: newSos.telemetry?.eta || 'ETA Unknown',
+        bedAssigned: newSos.hospital?.name ? 'Assigned' : 'Unassigned',
+        location: newSos.location || 'Unknown',
+        vitals: newSos.vitals || { hr: '--', bp: '--/--', spo2: '--', rr: '--' },
+        aiSummary: newSos.aiTriage?.summary || newSos.symptoms || ''
+      };
+      setCases([mappedCase]);
+      setSelectedCaseId(mappedCase.id);
+    };
+
+    socket.on('sos:broadcast', handleNewEmergency);
+    socket.on('incoming-critical-patient', handleNewEmergency);
+
+    socket.on('vitals-sync', (vitalsUpdate) => {
+      // In a full app, this would update the specific case's vitals in state
+      console.log('Received real-time vitals update:', vitalsUpdate);
+    });
+
+    return () => {
+      socket.off('sos:broadcast');
+      socket.off('incoming-critical-patient');
+      socket.off('vitals-sync');
+    };
+  }, [doctorUser]);
+
+  // ER Bed Floor Plan Map (Fetched from backend)
+  const [beds, setBeds] = useState([]);
 
   // Fetch ER Beds status from REST API
   useEffect(() => {
@@ -208,7 +217,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
       .catch(err => console.log('Backend beds notice:', err));
   }, []);
 
-  const activeCase = cases.find(c => c.id === selectedCaseId) || cases[0];
+  const activeCase = cases.find(c => c.id === selectedCaseId) || cases[0] || null;
 
   // Doctor 1-Click Medication Approval Helper
   const handleApproveMedication = async (medication, dosage) => {
@@ -320,32 +329,40 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
         )}
 
         {/* Unified Active Incoming Emergency Summary Banner */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E5E2D9] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          
-          <div className="space-y-1.5 max-w-xl">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-0.5 rounded-full bg-[#D9532F] text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                PRIORITY RED LEVEL-1
-              </span>
-              <span className="text-xs text-[#0C4A3B] font-bold bg-[#E8F0EC] px-2.5 py-0.5 rounded-full">Unit: {activeCase.ambulanceUnit}</span>
+        {activeCase ? (
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E5E2D9] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            
+            <div className="space-y-1.5 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-0.5 rounded-full bg-[#D9532F] text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                  PRIORITY RED LEVEL-1
+                </span>
+                <span className="text-xs text-[#0C4A3B] font-bold bg-[#E8F0EC] px-2.5 py-0.5 rounded-full">Unit: {activeCase.ambulanceUnit}</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-serif-heading font-bold text-[#1C2B22]">
+                {activeCase.title} — {activeCase.patientName} ({activeCase.ageGender})
+              </h2>
+              <p className="text-xs sm:text-sm text-[#5F6B63]">
+                Transported by {activeCase.ambulanceUnit} ({activeCase.driverName}) • Pick-up: {activeCase.location}
+              </p>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-serif-heading font-bold text-[#1C2B22]">
-              {activeCase.title} — {activeCase.patientName} ({activeCase.ageGender})
-            </h2>
-            <p className="text-xs sm:text-sm text-[#5F6B63]">
-              Transported by {activeCase.ambulanceUnit} ({activeCase.driverName}) • Pick-up: {activeCase.location}
-            </p>
-          </div>
 
-          {/* Incoming ETA Countdown Box */}
-          <div className="bg-[#0C4A3B] text-white px-6 py-4 rounded-2xl shadow text-center shrink-0 border border-[#72DFB4]/30 w-full md:w-auto">
-            <span className="text-[10px] uppercase font-bold text-[#72DFB4] block">INCOMING ER ETA</span>
-            <span className="text-3xl sm:text-4xl font-bold font-mono text-white">{activeCase.eta}</span>
-            <span className="text-[10px] text-emerald-100 block mt-0.5">{activeCase.bedAssigned}</span>
-          </div>
+            {/* Incoming ETA Countdown Box */}
+            <div className="bg-[#0C4A3B] text-white px-6 py-4 rounded-2xl shadow text-center shrink-0 border border-[#72DFB4]/30 w-full md:w-auto">
+              <span className="text-[10px] uppercase font-bold text-[#72DFB4] block">INCOMING ER ETA</span>
+              <span className="text-3xl sm:text-4xl font-bold font-mono text-white">{activeCase.eta}</span>
+              <span className="text-[10px] text-emerald-100 block mt-0.5">{activeCase.bedAssigned}</span>
+            </div>
 
-        </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E5E2D9] shadow-sm flex flex-col items-center justify-center gap-2 h-32">
+            <CheckCircle2 className="w-8 h-8 text-[#72DFB4]" />
+            <h2 className="text-xl font-serif-heading font-bold text-[#1C2B22]">No Active Incoming Emergencies</h2>
+            <p className="text-xs text-[#5F6B63]">ER is standing by for new dispatch alerts.</p>
+          </div>
+        )}
 
         {/* Clear View Switcher Tabs */}
         <div className="flex items-center justify-between border-b border-[#E5E2D9] pb-3">
@@ -416,8 +433,11 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
           </span>
         </div>
 
-        {/* TAB 1: ACTIVE PATIENT TRIAGE (DEFAULT VIEW) */}
-        {activeTab === 'active_triage' && (
+        {/* TAB 1: ACTIVE TRIAGE & TELEMETRY */}
+        {activeTab === 'active_triage' && !activeCase && (
+          <div className="text-center py-12 text-[#5F6B63]">No active patient triage data.</div>
+        )}
+        {activeTab === 'active_triage' && activeCase && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl p-6 border border-[#E5E2D9] shadow-sm space-y-6">
               
@@ -603,7 +623,10 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
         )}
 
         {/* TAB 2: PARAMEDIC RADIO & VOICE */}
-        {activeTab === 'radio' && (
+        {activeTab === 'radio' && !activeCase && (
+          <div className="text-center py-12 text-[#5F6B63]">No active paramedic radio link.</div>
+        )}
+        {activeTab === 'radio' && activeCase && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl p-6 border border-[#E5E2D9] shadow-sm space-y-6">
               

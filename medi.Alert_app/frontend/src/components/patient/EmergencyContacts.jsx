@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Users, Plus, Phone, Trash2, Edit3, Send, CheckCircle2, Shield, Heart, MessageCircle } from 'lucide-react';
 import TiltCard from '../TiltCard';
 
-export default function EmergencyContacts({ contacts, onUpdateContacts }) {
+export default function EmergencyContacts({ contacts, onUpdateContacts, activeSOS }) {
   const [isAdding, setIsAdding] = useState(false);
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('Spouse');
@@ -40,7 +40,12 @@ export default function EmergencyContacts({ contacts, onUpdateContacts }) {
   };
 
   const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta) => {
-    const trackingLink = `https://medalert.ai/track/SOS-${Math.floor(100000 + Math.random() * 900000)}`;
+    if (!activeSOS) {
+      alert("Please trigger an SOS emergency first to generate a live tracking link.");
+      return;
+    }
+    const trackingId = activeSOS.id;
+    const trackingLink = `${window.location.origin}/?track=${trackingId}`;
     const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}

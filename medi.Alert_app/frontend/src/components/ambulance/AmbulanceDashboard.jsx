@@ -39,8 +39,9 @@ import TiltCard from '../TiltCard';
 import RealMapTracker from '../patient/RealMapTracker';
 import socket from '../../services/socket';
 
-const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta) => {
-  const trackingLink = `https://medalert.ai/track/SOS-${Math.floor(100000 + Math.random() * 900000)}`;
+const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta, activeCase) => {
+  const trackingId = activeCase?.id || `SOS-${Math.floor(100000 + Math.random() * 900000)}`;
+  const trackingLink = `${window.location.origin}/?track=${trackingId}`;
   const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -70,6 +71,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   const [greenCorridor, setGreenCorridor] = useState(true);
   const [speed, setSpeed] = useState(68);
   const [activeTab, setActiveTab] = useState('navigation');
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const radioChannelRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -85,30 +87,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     baseHospital: driverUser?.baseHospital || 'City Cardiac Institute'
   };
 
-  // Active Emergency Case Data (dynamic state)
-  const [emergencyCase, setEmergencyCase] = useState({
-    id: 'SOS-849120',
-    priority: 'RED',
-    patientName: 'Alex Johnson',
-    ageGender: '62yo Male',
-    location: '100ft Road, Indiranagar, Sector 4',
-    condition: 'Acute Myocardial Infarction (STEMI)',
-    allergies: 'Penicillin, Latex',
-    vitals: {
-      heartRate: 112,
-      bp: '142/90',
-      spo2: 94,
-      respRate: 22
-    },
-    hospital: {
-      name: 'City Cardiac & Emergency Institute',
-      bed: 'Cardiology Bed #4 (Locked)',
-      address: '45 Healthcare Boulevard',
-      doctor: 'Dr. Sarah Jenkins (Cardiology Lead)',
-      doctorPhone: '+1 (555) 019-2831'
-    },
-    contactPhone: '+1 (555) 392-0194'
-  });
+  const [emergencyCase, setEmergencyCase] = useState(null);
 
   // Fetch dynamic active emergency from backend REST API
   useEffect(() => {
@@ -136,6 +115,25 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
       socket.off('doctor:medication_order');
     };
   }, []);
+
+  const handleCompleteSOS = async () => {
+    if (!emergencyCase?.id) return;
+    setIsCompleting(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/sos/${emergencyCase.id}/complete`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (data.success) {
+        setEmergencyCase(null);
+        setDutyStatus('STANDBY');
+      }
+    } catch (error) {
+      console.error('Failed to complete SOS:', error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   // Dynamic speed fluctuation & WebSocket real-time telemetry stream
   useEffect(() => {
@@ -382,6 +380,27 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     { id: 5, label: 'ER Handover', desc: 'Complete' }
   ];
 
+  if (!emergencyCase) {
+    return (
+      <div className="min-h-screen bg-[#F8F7F4] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
+        <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+             <button onClick={onBackToLanding} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"><ArrowLeft className="w-4 h-4" /><span>Landing</span></button>
+             <div className="flex items-center gap-2"><Ambulance className="w-5 h-5 text-white" /><span className="font-serif-heading text-lg font-bold text-white tracking-tight">Ambulance Command</span></div>
+             <div></div>
+           </div>
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-24 h-24 bg-[#E8F0EC] rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <Radio className="w-12 h-12 text-[#0C4A3B] animate-pulse" />
+          </div>
+          <h2 className="text-3xl font-serif-heading font-bold text-[#1C2B22] mb-2">Awaiting Dispatch</h2>
+          <p className="text-[#5F6B63] max-w-md">Your unit is on standby. You will receive an alert here immediately when a new emergency is assigned to you.</p>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F7F4] text-[#1C2B22] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
       
@@ -495,11 +514,20 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
               </a>
 
               <button
-                onClick={() => sendEmergencyWhatsApp(emergencyCase.contactPhone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon')}
+                onClick={() => sendEmergencyWhatsApp(emergencyCase.contactPhone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon', emergencyCase)}
                 className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp</span>
+              </button>
+
+              <button
+                onClick={handleCompleteSOS}
+                disabled={isCompleting}
+                className="flex-1 lg:flex-none justify-center bg-[#0C4A3B] hover:bg-[#08362B] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{isCompleting ? 'Completing...' : 'Complete SOS'}</span>
               </button>
 
               <button

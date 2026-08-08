@@ -26,6 +26,22 @@ const userSchema = mongoose.Schema(
     reg: String,
     hospital: String,
     department: String,
+    emergencyContacts: [{
+      id: String,
+      name: String,
+      relationship: String,
+      phone: String,
+      notifySms: Boolean
+    }],
+    medicalHistory: [{
+      id: String,
+      date: String,
+      event: String,
+      hospital: String,
+      doctor: String,
+      notes: String,
+      type: { type: String }
+    }],
   },
   {
     timestamps: true,

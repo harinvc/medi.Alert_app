@@ -6,10 +6,11 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 
 // Models
-const User = require('./models/User');
-const SOS = require('./models/SOS');
 const Bed = require('./models/Bed');
 const MedicationOrder = require('./models/MedicationOrder');
+const EmergencyCase = require('./models/EmergencyCase');
+const Hospital = require('./models/Hospital');
+const sosRoutes = require('./routes/sos.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -34,83 +35,7 @@ const io = new Server(server, {
   }
 });
 
-// Seed data function (runs on startup to populate if empty)
-const seedDatabase = async () => {
-  try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      await User.insertMany([
-        { email: 'alex.johnson@gmail.com', password: 'password123', role: 'patient', name: 'Alex Johnson', phone: '+1 (555) 019-2834', bloodGroup: 'O+' },
-        { email: 'driver@medalert.ai', password: 'password123', role: 'driver', name: 'Marcus Vance', unit: 'AMB-UNIT-04', reg: 'AMB-104-NYC' },
-        { email: 'doctor@medalert.ai', password: 'password123', role: 'doctor', name: 'Dr. Sarah Jenkins', hospital: 'City Cardiac & Emergency Institute', department: 'Lead Emergency Cardiologist' }
-      ]);
-      console.log('Seeded Users');
-    }
-
-    const bedCount = await Bed.countDocuments();
-    if (bedCount === 0) {
-      await Bed.insertMany([
-        { id: 1, name: 'Bed #1', status: 'Occupied', patient: 'Sam W.', type: 'Trauma' },
-        { id: 2, name: 'Bed #2', status: 'Occupied', patient: 'Elena R.', type: 'General' },
-        { id: 3, name: 'Bed #3', status: 'Available', patient: null, type: 'General' },
-        { id: 4, name: 'Bed #4', status: 'Reserved (Locked)', patient: 'Alex Johnson (Incoming)', type: 'Cardiology ER' },
-        { id: 5, name: 'Bed #5', status: 'Occupied', patient: 'Chris P.', type: 'ICU' },
-        { id: 6, name: 'Bed #6', status: 'Sanitizing', patient: null, type: 'Trauma' },
-        { id: 7, name: 'Bed #7', status: 'Reserved (Locked)', patient: 'Rachel Green (Incoming)', type: 'Orthopedic' },
-        { id: 8, name: 'Bed #8', status: 'Available', patient: null, type: 'General' }
-      ]);
-      console.log('Seeded Beds');
-    }
-
-    const sosCount = await SOS.countDocuments();
-    if (sosCount === 0) {
-      await SOS.create({
-        id: `SOS-849120`,
-        status: 'DISPATCHED',
-        priority: 'RED',
-        patientName: 'Alex Johnson',
-        ageGender: '62yo Male',
-        location: '100ft Road, HAL Indiranagar, Sector 4',
-        condition: 'Acute Distress / Chest Pain',
-        allergies: 'Penicillin, Latex',
-        symptoms: 'Severe crushing chest pain radiating down left arm',
-        vitals: {
-          heartRate: 112,
-          bp: '142/90',
-          spo2: 94,
-          respRate: 22,
-          shockIndex: 0.79,
-          shockStatus: 'CARDIOGENIC SHOCK RISK: ELEVATED'
-        },
-        telemetry: {
-          speed: 72,
-          lat: 12.9782,
-          lng: 77.6394,
-          greenCorridor: true,
-          eta: '3.0 min'
-        },
-        driver: {
-          name: 'Marcus Vance',
-          unit: 'AMB-UNIT-04',
-          vehicleReg: 'AMB-104-NYC',
-          phone: '+1 (555) 392-0194'
-        },
-        hospital: {
-          name: 'City Cardiac & Emergency Institute',
-          rating: 4.9,
-          bed: 'Cardiology Bed #4 (Locked)',
-          address: '45 Healthcare Boulevard',
-          doctor: 'Dr. Sarah Jenkins (Cardiology Lead)',
-          doctorPhone: '+1 (555) 019-2831'
-        }
-      });
-      console.log('Seeded Initial SOS');
-    }
-  } catch (error) {
-    console.error('Error seeding database:', error);
-  }
-};
-seedDatabase();
+// seedDatabase() logic has been moved to a standalone seed.js file.
 
 // REST API ROUTES
 
@@ -170,89 +95,37 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     if (user) {
-      // NOTE: Passwords are not hashed here for prototype purposes
       return res.json({ success: true, user, token: `token_${user._id}_${Date.now()}` });
     }
 
-    // Fallback auto-provision for demo
-    const newUser = await User.create({
-      email: email || 'user@medalert.ai',
-      password: password || 'password123',
-      name: email ? email.split('@')[0] : 'Emergency User',
-      role: role || 'patient'
-    });
-
-    res.json({ success: true, user: newUser, token: `token_${newUser._id}_${Date.now()}` });
+    res.status(404).json({ success: false, message: 'User not found.' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 3. Create Emergency SOS API
-app.post('/api/sos/create', async (req, res) => {
+// Demo Route to fetch first user by role
+app.get('/api/auth/demo/:role', async (req, res) => {
   try {
-    const { symptoms, location, patientName, bloodGroup, allergies, contactPhone } = req.body;
-
-    const newSos = await SOS.create({
-      id: `SOS-${Math.floor(100000 + Math.random() * 900000)}`,
-      status: 'DISPATCHED',
-      priority: symptoms && symptoms.toLowerCase().includes('chest') ? 'RED' : 'RED',
-      patientName: patientName || 'Alex Johnson',
-      ageGender: '62yo Male',
-      location: location || '100ft Road, HAL Indiranagar, Sector 4',
-      condition: symptoms || 'Acute Distress / Chest Pain',
-      allergies: allergies || 'Penicillin, Latex',
-      symptoms: symptoms || 'Severe crushing chest pain radiating down left arm',
-      contactPhone: contactPhone || '+1 (555) 392-0194',
-      vitals: {
-        heartRate: 112,
-        bp: '142/90',
-        spo2: 94,
-        respRate: 22,
-        shockIndex: 0.79,
-        shockStatus: 'CARDIOGENIC SHOCK RISK: ELEVATED'
-      },
-      telemetry: {
-        speed: 72,
-        lat: 12.9782,
-        lng: 77.6394,
-        greenCorridor: true,
-        eta: '3.0 min'
-      },
-      driver: {
-        name: 'Marcus Vance',
-        unit: 'AMB-UNIT-04',
-        vehicleReg: 'AMB-104-NYC',
-        phone: '+1 (555) 392-0194'
-      },
-      hospital: {
-        name: 'City Cardiac & Emergency Institute',
-        rating: 4.9,
-        bed: 'Cardiology Bed #4 (Locked)',
-        address: '45 Healthcare Boulevard',
-        doctor: 'Dr. Sarah Jenkins (Cardiology Lead)',
-        doctorPhone: '+1 (555) 019-2831'
-      }
-    });
-
-    // Broadcast SOS event to all connected WebSockets
-    io.emit('sos:broadcast', newSos);
-
-    res.json({ success: true, sos: newSos });
+    const user = await User.findOne({ role: req.params.role });
+    if (user) {
+      res.json({ success: true, user });
+    } else {
+      res.status(404).json({ success: false, message: 'No user found for role.' });
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 4. Get Active Emergency SOS API
-app.get('/api/sos/active', async (req, res) => {
-  try {
-    const sos = await SOS.findOne().sort({ createdAt: -1 }); // Get the latest SOS
-    res.json({ success: true, sos });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+// Attach io to req for controllers
+app.use((req, res, next) => {
+  req.io = io;
+  next();
 });
+
+// 3. SOS Routes
+app.use('/api/sos', sosRoutes);
 
 // 5. Get ER Beds Status API
 app.get('/api/beds/status', async (req, res) => {
@@ -416,48 +289,48 @@ app.get('/api/hospitals/nearest', async (req, res) => {
 });
 
 // WEBSOCKET REAL-TIME EVENT HANDLERS
-io.on('connection', async (socket) => {
-  console.log(`⚡ Client connected to WebSockets: ${socket.id}`);
+io.on('connection', (socket) => {
+  console.log('⚡ Client connected to WebSockets:', socket.id);
 
-  try {
-    // Send current state on connect from DB
-    const activeSOS = await SOS.findOne().sort({ createdAt: -1 });
-    const beds = await Bed.find().sort({ id: 1 });
-    
-    socket.emit('sos:active', activeSOS);
-    socket.emit('beds:update', beds);
+  socket.on('join_hospital', (hospitalId) => {
+    socket.join(`hospital_${hospitalId}`);
+    console.log(`🏥 Hospital dashboard joined room: hospital_${hospitalId}`);
+  });
 
-    // 1. Live Ambulance Telemetry Streaming (GPS + Speed + Corridor)
-    socket.on('ambulance:telemetry', async (data) => {
-      // In a real app we might update the DB here, but since it's high frequency
-      // telemetry streaming, broadcasting is usually enough, occasionally saving.
-      socket.broadcast.emit('ambulance:telemetry_stream', data);
-    });
+  socket.on('location-update', (data) => {
+    io.emit('location-update', data);
+  });
+  
+  socket.on('vitals-sync', (data) => {
+    io.emit('vitals-sync', data);
+  });
 
-    // 2. Live Patient Vitals Streaming (HR, BP, SpO2, Shock Index)
-    socket.on('patient:vitals_stream', (vitals) => {
-      socket.broadcast.emit('patient:vitals_update', vitals);
-    });
+  socket.on('ambulance:telemetry', (data) => {
+    io.emit('ambulance:telemetry', data); // Keep legacy for now just in case
+    socket.broadcast.emit('ambulance:telemetry_stream', data);
+  });
 
-    // 3. Push to Talk (PTT) Audio & Transcript Relays
-    socket.on('ptt:start', (data) => {
-      socket.broadcast.emit('ptt:incoming_start', data);
-    });
+  // 2. Live Patient Vitals Streaming (HR, BP, SpO2, Shock Index)
+  socket.on('patient:vitals_stream', (vitals) => {
+    socket.broadcast.emit('patient:vitals_update', vitals);
+  });
 
-    socket.on('ptt:audio_chunk', (chunk) => {
-      socket.broadcast.emit('ptt:audio_chunk', chunk);
-    });
+  // 3. Push to Talk (PTT) Audio & Transcript Relays
+  socket.on('ptt:start', (data) => {
+    socket.broadcast.emit('ptt:incoming_start', data);
+  });
 
-    socket.on('ptt:transcript', (data) => {
-      socket.broadcast.emit('ptt:transcript_stream', data);
-    });
+  socket.on('ptt:audio_chunk', (chunk) => {
+    socket.broadcast.emit('ptt:audio_chunk', chunk);
+  });
 
-    socket.on('ptt:end', (data) => {
-      socket.broadcast.emit('ptt:incoming_end', data);
-    });
-  } catch (err) {
-    console.error('Socket Connection Error:', err);
-  }
+  socket.on('ptt:transcript', (data) => {
+    socket.broadcast.emit('ptt:transcript_stream', data);
+  });
+
+  socket.on('ptt:end', (data) => {
+    socket.broadcast.emit('ptt:incoming_end', data);
+  });
 
   socket.on('disconnect', () => {
     console.log(`🔌 Client disconnected: ${socket.id}`);
