@@ -46,7 +46,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   const [liveTranscript, setLiveTranscript] = useState('');
   const [greenCorridor, setGreenCorridor] = useState(true);
   const [speed, setSpeed] = useState(68);
-  const [activeTab, setActiveTab] = useState('navigation'); // default to 'navigation' for ultra-clean map focus
+  const [activeTab, setActiveTab] = useState('navigation');
 
   const radioChannelRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -379,7 +379,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
       {/* Main Content Body */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full space-y-6">
         
-        {/* Streamlined Mission Summary HUD (Clean White Card with Red Priority Tag) */}
+        {/* Streamlined Mission Summary HUD */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#E5E2D9] shadow-sm space-y-4">
           
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-[#F2EEE6] pb-4">
@@ -495,7 +495,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
               }`}
             >
               <Heart className="w-4 h-4 text-red-500 animate-pulse" />
-              <span>🩸 Patient Vitals & ECG</span>
+              <span>🩸 Patient Vitals & Shock Index</span>
             </button>
 
             <button
@@ -540,7 +540,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
           </span>
         </div>
 
-        {/* TAB 1: LIVE ROUTE & MAP FOCUS (DEFAULT CLEAN VIEW) */}
+        {/* TAB 1: LIVE ROUTE & MAP FOCUS */}
         {activeTab === 'navigation' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl p-6 border border-[#E5E2D9] shadow-sm space-y-5">
@@ -603,7 +603,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
           </div>
         )}
 
-        {/* TAB 2: PATIENT VITALS FOCUS */}
+        {/* TAB 2: PATIENT VITALS FOCUS & AI SHOCK INDEX */}
         {activeTab === 'vitals' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl p-6 border border-[#E5E2D9] shadow-sm space-y-6">
@@ -625,6 +625,30 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                   <Stethoscope className="w-4 h-4 text-[#72DFB4]" />
                   <span>Call Lead Physician ({emergencyCase.hospital.doctor})</span>
                 </a>
+              </div>
+
+              {/* AI Shock Index Telemetry Box */}
+              <div className="bg-[#0C4A3B] text-white p-4.5 rounded-2xl border border-[#72DFB4]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#D9532F] text-white flex items-center justify-center font-bold text-sm shrink-0 animate-pulse shadow">
+                    ⚡
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#72DFB4] font-mono block">
+                      AI SHOCK INDEX & DETERIORATION TELEMETRY
+                    </span>
+                    <h4 className="text-sm font-bold text-white">
+                      Shock Index Score: <strong className="text-yellow-300 font-mono">0.79</strong> (HR 112 / Systolic BP 142)
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right">
+                  <span className="bg-[#D9532F] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    ⚡ CARDIOGENIC SHOCK RISK: ELEVATED
+                  </span>
+                  <span className="text-[10px] text-emerald-100 block mt-0.5">Calculated in real-time by MedAlert AI</span>
+                </div>
               </div>
 
               {/* Grid of Large Vitals */}

@@ -378,6 +378,73 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                 <p className="text-sm leading-relaxed text-gray-100">{activeCase.aiSummary}</p>
               </div>
 
+              {/* AI Emergency Pre-Arrival Medication Orders */}
+              <div className="bg-[#FAF9F6] p-4.5 rounded-2xl border border-[#E5E2D9] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#0C4A3B] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#0C4A3B]" /> AI Emergency Pre-Arrival Medication Pre-Approvals
+                  </span>
+                  <span className="text-[10px] font-mono bg-[#E8F0EC] text-[#0C4A3B] font-bold px-2 py-0.5 rounded">
+                    DIRECT PARAMEDIC BROADCAST
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <button
+                    onClick={() => {
+                      setProtocolExecuted(prev => ({ ...prev, heparinApproved: true }));
+                      try {
+                        const ch = new BroadcastChannel('medalert_er_radio');
+                        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: IV Heparin 5,000 Units protocol APPROVED by ER Lead.`, sender: `Dr. Sarah Jenkins` });
+                        ch.close();
+                      } catch(e) {}
+                    }}
+                    className="p-3 rounded-xl bg-white border border-[#0C4A3B]/30 hover:bg-[#E8F0EC] transition-all font-semibold text-[#0C4A3B] flex items-center gap-2 cursor-pointer text-left"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-[#0C4A3B]"></span>
+                    <div>
+                      <strong className="block text-xs">Stat IV Heparin</strong>
+                      <span className="text-[10px] text-gray-500">5,000 Units Bolus</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      try {
+                        const ch = new BroadcastChannel('medalert_er_radio');
+                        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: Sublingual Nitroglycerin 0.4mg APPROVED for chest pain relief.`, sender: `Dr. Sarah Jenkins` });
+                        ch.close();
+                      } catch(e) {}
+                    }}
+                    className="p-3 rounded-xl bg-white border border-[#0C4A3B]/30 hover:bg-[#E8F0EC] transition-all font-semibold text-[#0C4A3B] flex items-center gap-2 cursor-pointer text-left"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-[#0C4A3B]"></span>
+                    <div>
+                      <strong className="block text-xs">Sublingual Nitro</strong>
+                      <span className="text-[10px] text-gray-500">0.4mg Tab (Check BP)</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setProtocolExecuted(prev => ({ ...prev, labsOrdered: true }));
+                      try {
+                        const ch = new BroadcastChannel('medalert_er_radio');
+                        ch.postMessage({ type: 'TRANSCRIPT', text: `DR. JENKINS: Stat Cardiac Troponin I Lab Panel ordered for immediate arrival.`, sender: `Dr. Sarah Jenkins` });
+                        ch.close();
+                      } catch(e) {}
+                    }}
+                    className="p-3 rounded-xl bg-white border border-[#0C4A3B]/30 hover:bg-[#E8F0EC] transition-all font-semibold text-[#0C4A3B] flex items-center gap-2 cursor-pointer text-left"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-[#0C4A3B]"></span>
+                    <div>
+                      <strong className="block text-xs">Stat Troponin I Labs</strong>
+                      <span className="text-[10px] text-gray-500">High-Sensitivity Assay</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* In-Transit Vitals Grid */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#0C4A3B]">Real-Time In-Transit Patient Vitals</h4>

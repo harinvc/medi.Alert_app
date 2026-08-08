@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   Mic, 
@@ -12,7 +12,8 @@ import {
   Activity,
   Ambulance,
   Hospital,
-  Users
+  Users,
+  Heart
 } from 'lucide-react';
 import TiltCard from '../TiltCard';
 
@@ -23,6 +24,16 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeSOS, setActiveSOS] = useState(null);
   const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: 'MG Road, Indiranagar, Sector 4' });
+  const [cprCount, setCprCount] = useState(1);
+
+  // CPR Metronome rhythm counter (100 BPM pacing)
+  useEffect(() => {
+    if (!activeSOS) return;
+    const interval = setInterval(() => {
+      setCprCount((prev) => (prev % 4) + 1);
+    }, 550);
+    return () => clearInterval(interval);
+  }, [activeSOS]);
 
   const handleSimulateGPS = () => {
     setIsLocating(true);
@@ -148,6 +159,48 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts }) 
               <div>
                 <span className="text-gray-400 block text-[10px] uppercase">Department Match</span>
                 <span className="font-semibold text-white text-sm">{activeSOS.aiAnalysis.department}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Bystander First-Aid Assistant & CPR Metronome */}
+          <div className="bg-[#0C4A3B] text-white p-5 rounded-2xl border border-[#72DFB4]/30 space-y-3 shadow">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <span className="text-xs font-bold text-[#72DFB4] uppercase tracking-wider flex items-center gap-1.5">
+                <Heart className="w-4 h-4 text-red-400 animate-pulse" /> AI Bystander First-Aid Assistant (While Waiting)
+              </span>
+              <span className="text-[10px] bg-white/10 text-emerald-200 px-2 py-0.5 rounded font-mono">100-120 BPM CPR METRONOME</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#D9532F] text-white flex items-center justify-center font-bold text-sm shrink-0 animate-ping">
+                  {cprCount}
+                </div>
+                <div>
+                  <strong className="block text-white text-xs">Chest Compressions</strong>
+                  <span className="text-[11px] text-emerald-100">Push hard & fast at center of chest ({cprCount})</span>
+                </div>
+              </div>
+
+              <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#08362B] text-[#72DFB4] flex items-center justify-center font-bold text-sm shrink-0">
+                  🩸
+                </div>
+                <div>
+                  <strong className="block text-white text-xs">Bleeding Control</strong>
+                  <span className="text-[11px] text-emerald-100">Apply firm pressure with clean cloth</span>
+                </div>
+              </div>
+
+              <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#08362B] text-[#72DFB4] flex items-center justify-center font-bold text-sm shrink-0">
+                  💨
+                </div>
+                <div>
+                  <strong className="block text-white text-xs">Airway Position</strong>
+                  <span className="text-[11px] text-emerald-100">Tilt head back, lift chin slightly</span>
+                </div>
               </div>
             </div>
           </div>
