@@ -49,20 +49,12 @@ export default function App() {
   };
 
   const handleAuthSuccess = async (role, userDetails) => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/auth/demo/${role}`);
-      const data = await res.json();
-      if (data.success && data.user) {
-        setUser(data.user);
-      } else {
-        alert("Failed to retrieve user from backend.");
-        return;
-      }
-    } catch (error) {
-      console.error("Backend auth failed:", error);
-      alert("Cannot connect to backend database. Please ensure the server is running.");
+    if (!userDetails) {
+      alert("Authentication failed.");
       return;
     }
+    
+    setUser(userDetails);
 
     if (role === 'patient') {
       setCurrentView('patient_app');

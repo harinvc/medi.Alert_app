@@ -63,6 +63,7 @@ const importData = async () => {
         role: 'doctor',
         phone: '+1 (555) 987-6543',
         hospital: 'City Cardiac & Emergency Institute',
+        hospitalId: '60c72b2f9b1d8b0015a73e44',
         department: 'Cardiology Lead'
       }
     ]);
@@ -82,6 +83,7 @@ const importData = async () => {
     // Seed Hospitals
     await Hospital.insertMany([
       {
+        _id: '60c72b2f9b1d8b0015a73e44',
         name: 'City Cardiac & Emergency Institute',
         address: '45 Healthcare Boulevard',
         location: { lat: 12.9636, lng: 77.6066 },

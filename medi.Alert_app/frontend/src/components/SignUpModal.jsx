@@ -63,6 +63,7 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
   const [showPassword, setShowPassword] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState(null);
 
   if (!isOpen) return null;
 
@@ -91,32 +92,44 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login';
+      const payload = {
+        email: formData.email,
+        password: formData.password,
+        role: role,
+        name: formData.name,
+        phone: formData.phone,
+        bloodGroup: formData.bloodGroup,
+        reg: role === 'ambulance' ? formData.vehicleRegNo : formData.doctorRegNo,
+        hospital: role === 'ambulance' ? formData.baseHospital : formData.hospitalName,
+        department: formData.department
+      };
+
+      const res = await fetch(`http://10.11.2.30:5000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email || `${role}@medalert.ai`,
-          password: formData.password || 'password123',
-          role
-        })
+        body: JSON.stringify(payload)
       });
+      
       const data = await res.json();
       setLoading(false);
+      
       if (data.success) {
+        setRegisteredUser(data.user);
         setSubmittedSuccess(true);
       } else {
-        setSubmittedSuccess(true);
+        alert(data.message || 'Authentication failed');
       }
     } catch (err) {
       console.warn('Backend API connection notice:', err);
       setLoading(false);
-      setSubmittedSuccess(true);
+      alert('Could not connect to backend server.');
     }
   };
 
   const handleContinueToPortal = () => {
-    if (onAuthSuccess) {
-      onAuthSuccess(role, formData);
+    if (onAuthSuccess && registeredUser) {
+      onAuthSuccess(role, registeredUser);
     }
     onClose();
   };

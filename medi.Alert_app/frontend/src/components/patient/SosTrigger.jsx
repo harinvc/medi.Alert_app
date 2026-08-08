@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  AlertTriangle, 
-  Mic, 
-  Send, 
-  Sparkles, 
-  MapPin, 
-  CheckCircle2, 
-  ShieldAlert, 
-  PhoneCall, 
+import {
+  AlertTriangle,
+  Mic,
+  Send,
+  Sparkles,
+  MapPin,
+  CheckCircle2,
+  ShieldAlert,
+  PhoneCall,
   RotateCcw,
   Activity,
   Ambulance,
@@ -38,7 +38,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
   // Fetch initial active SOS from backend if exists
   useEffect(() => {
-    fetch('http://localhost:5000/api/sos/active')
+    fetch('http://10.11.2.30:5000/api/sos/active')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
@@ -95,7 +95,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
     try {
       // Call REST API to trigger SOS on backend
-      const res = await fetch('http://localhost:5000/api/sos/trigger', {
+      const res = await fetch('http://10.11.2.30:5000/api/sos/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sosPayload)
@@ -130,7 +130,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
   return (
     <div className="space-y-8 text-left">
-      
+
       {/* Top Banner */}
       <div className="bg-[#0C4A3B] text-white p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-xl border border-[#72DFB4]/20">
         <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-br from-[#72DFB4]/20 to-transparent rounded-full blur-2xl pointer-events-none"></div>
@@ -151,7 +151,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       {activeSOS ? (
         /* Active SOS Dispatch Panel */
         <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-[#D9532F] shadow-2xl space-y-6 animate-in fade-in zoom-in duration-300">
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#F2EEE6] pb-5">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-[#D9532F] text-white flex items-center justify-center shadow-lg animate-pulse">
@@ -237,7 +237,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
           {/* Dispatch Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
+
             {/* Driver Card */}
             <div className="bg-[#FAF8F5] p-5 rounded-2xl border border-[#E6E2D8] space-y-3">
               <span className="text-[10px] font-bold text-[#D9532F] uppercase tracking-wider block">Assigned Ambulance</span>
@@ -287,14 +287,14 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       ) : (
         /* Standard SOS Trigger Interface */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Main SOS Trigger Button Card */}
           <div className="lg:col-span-6">
-            <TiltCard 
-              maxDegree={6} 
+            <TiltCard
+              maxDegree={6}
               className="bg-white/90 backdrop-blur-md rounded-3xl p-8 border border-[#E6E2D8] shadow-xl text-center space-y-8"
             >
-              
+
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#D9532F]">Emergency Action</span>
                 <h3 className="text-2xl font-serif-heading font-bold text-[#1C2B22]">Press & Hold to Request Help</h3>
@@ -324,8 +324,8 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
                   <MapPin className="w-4 h-4 text-[#D9532F]" />
                   <span className="font-semibold text-[#1C2B22] truncate max-w-[220px]">{location.address}</span>
                 </div>
-                <button 
-                  onClick={handleSimulateGPS} 
+                <button
+                  onClick={handleSimulateGPS}
                   disabled={isLocating}
                   className="text-[#0C4A3B] font-bold hover:underline cursor-pointer shrink-0"
                 >
@@ -338,7 +338,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
           {/* Voice / Text Symptom Inputs & Quick Presets */}
           <div className="lg:col-span-6 space-y-6">
-            
+
             {/* Quick Emergency Symptoms Box */}
             <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-[#E6E2D8] shadow-xl space-y-6">
               <div className="space-y-1">
@@ -359,9 +359,8 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
                   <button
                     onClick={handleVoiceRecord}
                     disabled={isRecording}
-                    className={`absolute right-3 bottom-3 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isRecording ? 'bg-[#D9532F] text-white animate-pulse' : 'bg-[#E8F0EC] text-[#0C4A3B] hover:bg-[#0C4A3B] hover:text-white'
-                    }`}
+                    className={`absolute right-3 bottom-3 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${isRecording ? 'bg-[#D9532F] text-white animate-pulse' : 'bg-[#E8F0EC] text-[#0C4A3B] hover:bg-[#0C4A3B] hover:text-white'
+                      }`}
                   >
                     <Mic className="w-4 h-4" />
                     <span>{isRecording ? 'Listening...' : 'Voice'}</span>

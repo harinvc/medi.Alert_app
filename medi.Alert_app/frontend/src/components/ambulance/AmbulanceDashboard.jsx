@@ -41,7 +41,7 @@ import socket from '../../services/socket';
 
 const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta, activeCase) => {
   const trackingId = activeCase?.id || `SOS-${Math.floor(100000 + Math.random() * 900000)}`;
-  const trackingLink = `${window.location.origin}/?track=${trackingId}`;
+  const trackingLink = `http://10.11.2.30:5173/?track=${trackingId}`;
   const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -56,7 +56,9 @@ Please contact the patient/ambulance immediately.
 
 This is an automated MedAlert AI alert.`;
 
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  // Clean phone number (remove +, spaces, parentheses) for wa.me link
+  const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
   window.open(whatsappUrl, "_blank");
 };
@@ -91,7 +93,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
   // Fetch dynamic active emergency from backend REST API
   useEffect(() => {
-    fetch('http://localhost:5000/api/sos/active')
+    fetch('http://10.11.2.30:5000/api/sos/active')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
@@ -120,7 +122,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     if (!emergencyCase?.id) return;
     setIsCompleting(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/sos/${emergencyCase.id}/complete`, {
+      const response = await fetch(`http://10.11.2.30:5000/api/sos/${emergencyCase.id}/complete`, {
         method: 'POST'
       });
       const data = await response.json();

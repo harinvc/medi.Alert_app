@@ -129,65 +129,68 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           
           <button
             onClick={() => setActiveTab('sos')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'sos'
                 ? 'bg-[#D9532F] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>🚨 One-Tap SOS</span>
+            <span>One-Tap SOS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tracking')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative whitespace-nowrap ${
               activeTab === 'tracking'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Ambulance className="w-4 h-4 text-[#72DFB4]" />
-            <span>🧭 Live Ambulance Tracking</span>
+            <span>Live Ambulance Tracking</span>
             {activeSOS && (
-              <span className="w-2.5 h-2.5 rounded-full bg-[#D9532F] animate-ping absolute top-2 right-3"></span>
+              <span className="relative flex h-2 w-2 ml-1 -mt-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D9532F] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D9532F]"></span>
+              </span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab('contacts')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'contacts'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>👥 Emergency Contacts ({contacts.length})</span>
+            <span>Emergency Contacts ({contacts.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'profile'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <UserCheck className="w-4 h-4" />
-            <span>📋 Medical Profile</span>
+            <span>Medical Profile</span>
           </button>
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'history'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>🕒 Emergency History</span>
+            <span>Emergency History</span>
           </button>
 
         </div>

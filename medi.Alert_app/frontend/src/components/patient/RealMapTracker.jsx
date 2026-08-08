@@ -35,7 +35,7 @@ export default function RealMapTracker({ activeSOS }) {
 
   // Fetch hospitals near specific coordinates from backend
   const fetchHospitalsForLocation = (lat, lng) => {
-    fetch(`http://localhost:5000/api/hospitals/nearest?lat=${lat}&lng=${lng}`)
+    fetch(`http://10.11.2.30:5000/api/hospitals/nearest?lat=${lat}&lng=${lng}`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.hospitals && data.hospitals.length > 0) {
@@ -555,11 +555,53 @@ export default function RealMapTracker({ activeSOS }) {
         </div>
       )}
 
+      {/* Map Header with Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 pb-1">
+        <h3 className="text-[#0C4A3B] font-bold text-sm flex items-center gap-1.5">
+          <MapPin className="w-4 h-4 text-[#D9532F]" />
+          Live GPS Tracking Map
+        </h3>
+
+        {/* MapTiler Style Selector & Controls (Moved out to avoid overlap) */}
+        <div className="flex items-center gap-1.5 pointer-events-auto bg-white p-1 rounded-xl border border-[#E6E2D8] shadow-sm">
+          <select
+            value={mapStyle}
+            onChange={(e) => setMapStyle(e.target.value)}
+            className="text-xs font-semibold bg-[#FAF9F6] text-[#0C4A3B] px-2.5 py-1 rounded-lg border border-[#E6E2D8] outline-none cursor-pointer hover:bg-white transition-colors"
+            title="Select MapTiler HD Map Layer"
+          >
+            <option value="streets-v2">🗺️ MapTiler Streets HD</option>
+            <option value="hybrid">🛰️ MapTiler Satellite</option>
+            <option value="dataviz-dark">🌙 MapTiler Dark Nav</option>
+            <option value="bright-v2">🎨 MapTiler Bright Clean</option>
+            <option value="outdoor-v2">🏔️ MapTiler Outdoor Topo</option>
+          </select>
+
+          <div className="h-4 w-[1px] bg-gray-200"></div>
+
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="p-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            title={isPlaying ? "Pause Animation" : "Play Animation"}
+          >
+            {isPlaying ? <Pause className="w-4 h-4 text-[#D9532F]" /> : <Play className="w-4 h-4 text-[#0C4A3B]" />}
+          </button>
+          
+          <button
+            onClick={handleCenterPatient}
+            className="p-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            title="Recenter Map on Real Location"
+          >
+            <LocateFixed className="w-4 h-4 text-[#0C4A3B]" />
+          </button>
+        </div>
+      </div>
+
       {/* Leaflet Map Card Container */}
       <div className="relative w-full rounded-2xl overflow-hidden border border-[#E6E2D8] shadow-inner bg-[#FAF8F5]">
         
         {/* Top Floating Telemetry Overlay */}
-        <div className="absolute top-3 left-3 right-3 z-[400] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <div className="absolute top-3 left-3 right-3 z-[400] flex flex-wrap items-start justify-between gap-2 pointer-events-none">
           
           {/* Distance & ETA Badge */}
           <div className="bg-[#1C2B22]/90 backdrop-blur-md text-white px-3.5 py-2 rounded-xl border border-white/20 shadow-lg pointer-events-auto flex items-center gap-3">
@@ -576,41 +618,7 @@ export default function RealMapTracker({ activeSOS }) {
               <span className="text-gray-300">ETA:</span> <strong className="text-[#72DFB4] font-mono">{etaRemaining}</strong>
             </div>
           </div>
-
-          {/* MapTiler Style Selector & Controls */}
-          <div className="flex items-center gap-1.5 pointer-events-auto bg-white/95 backdrop-blur-md p-1 rounded-xl border border-[#E6E2D8] shadow-md">
-            <select
-              value={mapStyle}
-              onChange={(e) => setMapStyle(e.target.value)}
-              className="text-xs font-semibold bg-[#FAF9F6] text-[#0C4A3B] px-2.5 py-1 rounded-lg border border-[#E6E2D8] outline-none cursor-pointer hover:bg-white transition-colors"
-              title="Select MapTiler HD Map Layer"
-            >
-              <option value="streets-v2">🗺️ MapTiler Streets HD</option>
-              <option value="hybrid">🛰️ MapTiler Satellite</option>
-              <option value="dataviz-dark">🌙 MapTiler Dark Nav</option>
-              <option value="bright-v2">🎨 MapTiler Bright Clean</option>
-              <option value="outdoor-v2">🏔️ MapTiler Outdoor Topo</option>
-            </select>
-
-            <div className="h-4 w-[1px] bg-gray-200"></div>
-
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="p-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-              title={isPlaying ? "Pause Animation" : "Play Animation"}
-            >
-              {isPlaying ? <Pause className="w-4 h-4 text-[#D9532F]" /> : <Play className="w-4 h-4 text-[#0C4A3B]" />}
-            </button>
-            
-            <button
-              onClick={handleCenterPatient}
-              className="p-1.5 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-              title="Recenter Map on Real Location"
-            >
-              <LocateFixed className="w-4 h-4 text-[#0C4A3B]" />
-            </button>
-          </div>
-
+          {/* Removed MapTiler dropdown from here to prevent overlapping markers on top right */}
         </div>
 
         {/* Leaflet Map Canvas Container */}

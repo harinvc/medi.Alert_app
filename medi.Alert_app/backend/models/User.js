@@ -25,6 +25,7 @@ const userSchema = mongoose.Schema(
     unit: String,
     reg: String,
     hospital: String,
+    hospitalId: String,
     department: String,
     emergencyContacts: [{
       id: String,

@@ -10,6 +10,7 @@ const Bed = require('./models/Bed');
 const MedicationOrder = require('./models/MedicationOrder');
 const EmergencyCase = require('./models/EmergencyCase');
 const Hospital = require('./models/Hospital');
+const User = require('./models/User');
 const sosRoutes = require('./routes/sos.routes');
 
 const app = express();
@@ -20,9 +21,8 @@ connectDB();
 
 // Enable CORS for frontend clients
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
 app.use(express.json());
@@ -87,18 +87,45 @@ app.get('/api/health', (req, res) => {
 // 2. Authentication Login API
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password, role } = req.body;
-    let user = await User.findOne({ email });
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
 
-    if (!user && role) {
-      user = await User.findOne({ role });
-    }
-
-    if (user) {
+    if (user && user.password === password) {
       return res.json({ success: true, user, token: `token_${user._id}_${Date.now()}` });
     }
 
-    res.status(404).json({ success: false, message: 'User not found.' });
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 2b. Authentication Register API
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, role, name, phone, bloodGroup, unit, reg, hospital, department } = req.body;
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    const newUser = new User({
+      email,
+      password,
+      role: role === 'ambulance' ? 'driver' : role, // map ambulance to driver role in DB
+      name: name || email.split('@')[0],
+      phone,
+      bloodGroup,
+      unit,
+      reg,
+      hospital,
+      department
+    });
+
+    await newUser.save();
+    return res.json({ success: true, user: newUser, token: `token_${newUser._id}_${Date.now()}` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -141,7 +168,7 @@ app.get('/api/beds/status', async (req, res) => {
 app.post('/api/doctor/protocol', async (req, res) => {
   try {
     const { doctorName, medication, dosage, bedId } = req.body;
-    
+
     const order = await MedicationOrder.create({
       id: `ord_${Date.now()}`,
       doctorName: doctorName || 'Dr. Sarah Jenkins',
@@ -166,8 +193,8 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -193,7 +220,7 @@ app.get('/api/hospitals/nearest', async (req, res) => {
           const hLat = parseFloat(h.lat);
           const hLng = parseFloat(h.lon);
           const namePart = (h.display_name || '').split(',')[0].trim();
-          const cleanName = (!namePart || namePart.toLowerCase() === 'hospital') 
+          const cleanName = (!namePart || namePart.toLowerCase() === 'hospital')
             ? `Emergency Hospital ${(h.display_name || '').split(',')[1] || ''}`.trim()
             : namePart;
 
@@ -300,7 +327,7 @@ io.on('connection', (socket) => {
   socket.on('location-update', (data) => {
     io.emit('location-update', data);
   });
-  
+
   socket.on('vitals-sync', (data) => {
     io.emit('vitals-sync', data);
   });

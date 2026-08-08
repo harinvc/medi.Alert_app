@@ -45,7 +45,7 @@ export default function EmergencyContacts({ contacts, onUpdateContacts, activeSO
       return;
     }
     const trackingId = activeSOS.id;
-    const trackingLink = `${window.location.origin}/?track=${trackingId}`;
+    const trackingLink = `http://10.11.2.30:5173/?track=${trackingId}`;
     const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -60,7 +60,9 @@ Please contact the patient/ambulance immediately.
 
 This is an automated MedAlert AI alert.`;
 
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    // Clean phone number (remove +, spaces, parentheses) for wa.me link
+    const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
   };
 

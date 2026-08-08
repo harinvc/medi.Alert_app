@@ -46,6 +46,6 @@ const emergencyCaseSchema = new mongoose.Schema({
     summary: { type: String }
   }
 
-}, { timestamps: true });
+}, { timestamps: true, id: false });
 
 module.exports = mongoose.model('EmergencyCase', emergencyCaseSchema);

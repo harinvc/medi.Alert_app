@@ -10,7 +10,7 @@ export default function PublicTracker({ trackId }) {
   useEffect(() => {
     const fetchSOS = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/sos/active');
+        const res = await fetch('http://10.11.2.30:5000/api/sos/active');
         const data = await res.json();
         if (data.success && data.sos) {
           if (data.sos.id === trackId) {
