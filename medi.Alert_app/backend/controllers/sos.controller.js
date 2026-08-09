@@ -5,7 +5,7 @@ const matchingService = require('../services/matching.service');
 
 exports.triggerSOS = async (req, res) => {
   try {
-    const { symptoms, location, patientName, bloodGroup, allergies, contactPhone } = req.body;
+    const { symptoms, location, patientName, bloodGroup, allergies, emergencyContacts } = req.body;
     
     // Parse location if it's a string containing coordinates or fallback to default
     // In a real app, frontend would send accurate lat/lng. Here we mock from the text.
@@ -28,7 +28,7 @@ exports.triggerSOS = async (req, res) => {
       condition: symptoms,
       allergies: allergies || 'None',
       symptoms: symptoms,
-      contactPhone: contactPhone,
+      emergencyContacts: emergencyContacts || [],
       vitals: {
         heartRate: 112,
         bp: '142/90',

@@ -9,7 +9,11 @@ const emergencyCaseSchema = new mongoose.Schema({
   condition: { type: String },
   allergies: { type: String },
   symptoms: { type: String, required: true },
-  contactPhone: { type: String },
+  emergencyContacts: [{
+    name: String,
+    phone: String,
+    relationship: String
+  }],
   
   // Vitals tracking
   vitals: {

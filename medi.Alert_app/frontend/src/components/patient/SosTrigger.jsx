@@ -38,7 +38,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
   // Fetch initial active SOS from backend if exists
   useEffect(() => {
-    fetch('http://10.11.2.30:5000/api/sos/active')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
@@ -90,12 +90,12 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       patientName: medicalProfile?.name || 'Alex Johnson',
       allergies: medicalProfile?.allergies || 'Penicillin, Latex',
       bloodGroup: medicalProfile?.bloodGroup || 'O+',
-      contactPhone: emergencyContacts?.[0]?.phone || '+1 (555) 392-0194'
+      emergencyContacts: emergencyContacts?.map(c => ({ name: c.name, phone: c.phone, relationship: c.relationship })) || []
     };
 
     try {
       // Call REST API to trigger SOS on backend
-      const res = await fetch('http://10.11.2.30:5000/api/sos/trigger', {
+      const res = await fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sosPayload)

@@ -92,7 +92,7 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
     setLoading(true);
 
     try {
-      const endpoint = mode === 'signup' ? '/api/auth/register' : '/api/auth/login';
+      const endpoint = mode === 'signup' ? (import.meta.env.VITE_BACKEND_URL || "") + "/api/auth/register" : (import.meta.env.VITE_BACKEND_URL || "") + "/api/auth/login";
       const payload = {
         email: formData.email,
         password: formData.password,
@@ -105,7 +105,7 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
         department: formData.department
       };
 
-      const res = await fetch(`http://10.11.2.30:5000${endpoint}`, {
+      const res = await fetch(`${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

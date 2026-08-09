@@ -45,7 +45,7 @@ export default function EmergencyContacts({ contacts, onUpdateContacts, activeSO
       return;
     }
     const trackingId = activeSOS.id;
-    const trackingLink = `http://10.11.2.30:5173/?track=${trackingId}`;
+    const trackingLink = `https://digital-leave-combining-tapes.trycloudflare.com/?track=${trackingId}`;
     const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}

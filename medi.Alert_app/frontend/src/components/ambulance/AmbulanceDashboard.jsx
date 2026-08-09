@@ -41,7 +41,7 @@ import socket from '../../services/socket';
 
 const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta, activeCase) => {
   const trackingId = activeCase?.id || `SOS-${Math.floor(100000 + Math.random() * 900000)}`;
-  const trackingLink = `http://10.11.2.30:5173/?track=${trackingId}`;
+  const trackingLink = `https://digital-leave-combining-tapes.trycloudflare.com/?track=${trackingId}`;
   const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -93,7 +93,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
   // Fetch dynamic active emergency from backend REST API
   useEffect(() => {
-    fetch('http://10.11.2.30:5000/api/sos/active')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
@@ -122,7 +122,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     if (!emergencyCase?.id) return;
     setIsCompleting(true);
     try {
-      const response = await fetch(`http://10.11.2.30:5000/api/sos/${emergencyCase.id}/complete`, {
+      const response = await fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/sos/${emergencyCase.id}/complete`, {
         method: 'POST'
       });
       const data = await response.json();
@@ -507,21 +507,44 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
-              <a
-                href={`tel:${emergencyCase.contactPhone}`}
-                className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
-              >
-                <PhoneCall className="w-4 h-4" />
-                <span>Call Family</span>
-              </a>
+              {emergencyCase.emergencyContacts && emergencyCase.emergencyContacts.length > 0 ? (
+                emergencyCase.emergencyContacts.map((contact, idx) => (
+                  <React.Fragment key={idx}>
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
+                    >
+                      <PhoneCall className="w-4 h-4" />
+                      <span>Call {contact.name.split(' ')[0]}</span>
+                    </a>
+                    <button
+                      onClick={() => sendEmergencyWhatsApp(contact.phone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon', emergencyCase)}
+                      className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>WA {contact.name.split(' ')[0]}</span>
+                    </button>
+                  </React.Fragment>
+                ))
+              ) : (
+                <React.Fragment>
+                  <a
+                    href={`tel:${emergencyCase.contactPhone}`}
+                    className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
+                  >
+                    <PhoneCall className="w-4 h-4" />
+                    <span>Call Family</span>
+                  </a>
 
-              <button
-                onClick={() => sendEmergencyWhatsApp(emergencyCase.contactPhone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon', emergencyCase)}
-                className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp</span>
-              </button>
+                  <button
+                    onClick={() => sendEmergencyWhatsApp(emergencyCase.contactPhone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon', emergencyCase)}
+                    className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp</span>
+                  </button>
+                </React.Fragment>
+              )}
 
               <button
                 onClick={handleCompleteSOS}

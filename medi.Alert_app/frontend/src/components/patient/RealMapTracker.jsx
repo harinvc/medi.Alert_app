@@ -35,7 +35,7 @@ export default function RealMapTracker({ activeSOS }) {
 
   // Fetch hospitals near specific coordinates from backend
   const fetchHospitalsForLocation = (lat, lng) => {
-    fetch(`http://10.11.2.30:5000/api/hospitals/nearest?lat=${lat}&lng=${lng}`)
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/hospitals/nearest?lat=${lat}&lng=${lng}`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.hospitals && data.hospitals.length > 0) {
