@@ -93,7 +93,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
   // Fetch dynamic active emergency from backend REST API
   useEffect(() => {
-    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {

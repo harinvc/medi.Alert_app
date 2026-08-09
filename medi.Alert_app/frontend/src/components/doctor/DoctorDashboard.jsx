@@ -140,7 +140,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
     const mockHospitalId = doctorUser?.hospitalId || '60c72b2f9b1d8b0015a73e44'; // Example MongoDB ObjectId
     socket.emit('join_hospital', mockHospitalId);
 
-    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
@@ -207,7 +207,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
 
   // Fetch ER Beds status from REST API
   useEffect(() => {
-    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/beds/status')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/beds/status")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.beds) {
@@ -222,7 +222,7 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
   // Doctor 1-Click Medication Approval Helper
   const handleApproveMedication = async (medication, dosage) => {
     try {
-      const res = await fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/doctor/protocol', {
+      const res = await fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/doctor/protocol", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
