@@ -45,7 +45,8 @@ export default function EmergencyContacts({ contacts, onUpdateContacts, activeSO
       return;
     }
     const trackingId = activeSOS.id;
-    const trackingLink = `https://digital-leave-combining-tapes.trycloudflare.com/?track=${trackingId}`;
+    const baseUrl = import.meta.env.VITE_FRONTEND_URL || (window.location.hostname !== 'localhost' ? window.location.origin : 'https://medi-alert-app.onrender.com');
+    const trackingLink = `${baseUrl}/?track=${trackingId}`;
     const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -63,7 +64,7 @@ This is an automated MedAlert AI alert.`;
     // Clean phone number (remove +, spaces, parentheses) for wa.me link
     const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
+    window.location.href = whatsappUrl;
   };
 
   return (

@@ -129,7 +129,7 @@ export default function LiveAmbulanceTracker({ activeSOS }) {
             </div>
 
             <a
-              href={`tel:${driver.phone}`}
+              href={`tel:${driver.phone.replace(/[^\d+]/g, '')}`}
               className="w-full bg-[#D9532F] text-white py-3 rounded-2xl font-semibold text-xs hover:bg-[#C24522] transition-all shadow cursor-pointer flex items-center justify-center gap-2 text-decoration-none"
             >
               <PhoneCall className="w-4 h-4" />

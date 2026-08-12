@@ -34,11 +34,11 @@ export default function PatientDashboard({ user, onBackToLanding }) {
     email: user?.email || 'patient@medalert.org',
     phone: user?.phone || '+1 (555) 000-0000',
     bloodGroup: user?.bloodGroup || 'Unknown',
-    organDonor: true,
-    allergies: 'Severe Penicillin allergy, Latex sensitivity',
-    chronicConditions: 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
-    physicianName: 'Dr. Arthur Pendelton',
-    physicianPhone: '+1 (555) 882-9401'
+    organDonor: user?.organDonor !== undefined ? user.organDonor : true,
+    allergies: user?.allergies || 'Severe Penicillin allergy, Latex sensitivity',
+    chronicConditions: user?.chronicConditions || 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
+    physicianName: user?.physicianName || 'Dr. Arthur Pendelton',
+    physicianPhone: user?.physicianPhone || '+1 (555) 882-9401'
   });
 
   // Sync profile if user prop updates from auth
@@ -49,7 +49,12 @@ export default function PatientDashboard({ user, onBackToLanding }) {
         name: user.name,
         email: user.email || prev.email,
         phone: user.phone || prev.phone,
-        bloodGroup: user.bloodGroup || prev.bloodGroup
+        bloodGroup: user.bloodGroup || prev.bloodGroup,
+        organDonor: user.organDonor !== undefined ? user.organDonor : prev.organDonor,
+        allergies: user.allergies || prev.allergies,
+        chronicConditions: user.chronicConditions || prev.chronicConditions,
+        physicianName: user.physicianName || prev.physicianName,
+        physicianPhone: user.physicianPhone || prev.physicianPhone
       }));
     }
   }, [user]);
@@ -67,28 +72,28 @@ export default function PatientDashboard({ user, onBackToLanding }) {
       
       {/* Sleek Top Header Navigation Bar */}
       <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-2 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 overflow-hidden">
             <button
               onClick={onBackToLanding}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0"
               title="Return to Main Website"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Landing</span>
             </button>
 
-            <div className="h-6 w-[1px] bg-white/20"></div>
+            <div className="h-6 w-[1px] bg-white/20 shrink-0"></div>
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white text-[#0C4A3B] flex items-center justify-center shadow-sm">
-                <Activity className="w-5 h-5 text-[#0C4A3B]" />
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-hidden">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-white text-[#0C4A3B] flex items-center justify-center shadow-sm shrink-0">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#0C4A3B]" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-serif-heading text-lg font-bold text-white tracking-tight">Patient Portal</span>
-                  <span className="text-[10px] bg-[#72DFB4] text-[#0C4A3B] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono shadow-sm">
+              <div className="truncate">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-2 leading-tight">
+                  <span className="font-serif-heading text-sm sm:text-lg font-bold text-white tracking-tight whitespace-nowrap">Patient Portal</span>
+                  <span className="text-[8px] sm:text-[10px] bg-[#72DFB4] text-[#0C4A3B] font-bold px-1.5 sm:px-2 py-0.5 rounded-full uppercase tracking-wider font-mono shadow-sm leading-none whitespace-nowrap">
                     LIVE SOS CONNECTED
                   </span>
                 </div>
@@ -234,7 +239,7 @@ export default function PatientDashboard({ user, onBackToLanding }) {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E5E2D9] px-2 py-2 flex items-center justify-around shadow-xl">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E5E2D9] px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-xl">
         <button
           onClick={() => setActiveTab('sos')}
           className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition-all ${
@@ -298,6 +303,19 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           <span>History</span>
         </button>
       </div>
+
+      {/* Floating Action Button (FAB) for SOS - Visible when not on SOS tab */}
+      {activeTab !== 'sos' && (
+        <button
+          onClick={() => setActiveTab('sos')}
+          className="fixed bottom-24 right-6 md:bottom-10 md:right-10 z-50 w-16 h-16 md:w-20 md:h-20 bg-[#D9532F] text-white rounded-full shadow-2xl flex flex-col items-center justify-center border-4 border-white hover:bg-[#C24522] transition-transform transform hover:scale-105 active:scale-95 animate-bounce"
+          title="Emergency SOS"
+        >
+          <ShieldAlert className="w-6 h-6 md:w-8 md:h-8" />
+          <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest mt-0.5">SOS</span>
+          <span className="absolute -inset-2 rounded-full border-2 border-[#D9532F]/50 animate-ping pointer-events-none"></span>
+        </button>
+      )}
 
       {/* Patient Footer */}
       <footer className="hidden sm:block border-t border-[#E5E2D9] py-4 text-center text-xs text-[#5F6B63] bg-white">

@@ -42,13 +42,20 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
     // Patient specific
     bloodGroup: 'O+',
     allergies: '',
+    chronicConditions: '',
+    organDonor: false,
+    physicianName: '',
+    physicianPhone: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
+    profilePictureFile: null,
+    profilePicturePreview: null,
 
     // Driver specific
     licenseNumber: '',
     vehicleRegNo: '',
     baseHospital: '',
+    yearsOfExperience: '',
     licenseFile: null,
     licensePreview: null,
 
@@ -57,10 +64,15 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
     hospitalName: '',
     department: 'Emergency Medicine',
     credentialFile: null,
-    credentialPreview: null
+    credentialPreview: null,
+    
+    // Forgot Password
+    otp: '',
+    newPassword: ''
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [registeredUser, setRegisteredUser] = useState(null);
@@ -68,8 +80,8 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleFileUpload = (e, fieldName) => {
@@ -100,6 +112,15 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
         name: formData.name,
         phone: formData.phone,
         bloodGroup: formData.bloodGroup,
+        organDonor: formData.organDonor,
+        allergies: formData.allergies,
+        chronicConditions: formData.chronicConditions,
+        physicianName: formData.physicianName,
+        physicianPhone: formData.physicianPhone,
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContactPhone: formData.emergencyContactPhone,
+        licenseNumber: formData.licenseNumber,
+        yearsOfExperience: formData.yearsOfExperience,
         reg: role === 'ambulance' ? formData.vehicleRegNo : formData.doctorRegNo,
         hospital: role === 'ambulance' ? formData.baseHospital : formData.hospitalName,
         department: formData.department
@@ -122,6 +143,78 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
       }
     } catch (err) {
       console.warn('Backend API connection notice:', err);
+      setLoading(false);
+      alert('Could not connect to backend server. Make sure your local server is running or deployed backend is live.');
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const endpoint = (import.meta.env.VITE_BACKEND_URL || "") + "/api/auth/forgot-password";
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (data.success) {
+        setMode('forgot_password_otp');
+        alert(`OTP Generated (for dev): ${data.devOtp}`);
+      } else {
+        alert(data.message || 'Failed to send OTP');
+      }
+    } catch (err) {
+      setLoading(false);
+      alert('Could not connect to backend server.');
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const endpoint = (import.meta.env.VITE_BACKEND_URL || "") + "/api/auth/verify-otp";
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp: formData.otp })
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (data.success) {
+        setMode('forgot_password_reset');
+      } else {
+        alert(data.message || 'Invalid OTP');
+      }
+    } catch (err) {
+      setLoading(false);
+      alert('Could not connect to backend server.');
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const endpoint = (import.meta.env.VITE_BACKEND_URL || "") + "/api/auth/reset-password";
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp: formData.otp, newPassword: formData.newPassword })
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (data.success) {
+        setMode('signin');
+        setFormData(prev => ({ ...prev, password: '', otp: '', newPassword: '' }));
+        alert('Password reset successfully! You can now log in.');
+      } else {
+        alert(data.message || 'Failed to reset password');
+      }
+    } catch (err) {
       setLoading(false);
       alert('Could not connect to backend server.');
     }
@@ -205,6 +298,91 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                 </button>
               </div>
             </div>
+          ) : mode.startsWith('forgot_password') ? (
+            <form onSubmit={mode === 'forgot_password_email' ? handleForgotPassword : mode === 'forgot_password_otp' ? handleVerifyOtp : handleResetPassword} className="space-y-6">
+              <div className="text-center pb-4">
+                <h3 className="text-xl font-bold text-[#0C4A3B]">Reset Password</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {mode === 'forgot_password_email' ? "Enter your email to receive an OTP." : mode === 'forgot_password_otp' ? "Enter the 6-digit OTP sent to your email." : "Enter your new password."}
+                </p>
+              </div>
+
+              {mode === 'forgot_password_email' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#1C2B22]">Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="name@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B] focus:ring-1 focus:ring-[#0C4A3B]"
+                  />
+                </div>
+              )}
+
+              {mode === 'forgot_password_otp' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#1C2B22]">6-Digit OTP</label>
+                  <input
+                    type="text"
+                    name="otp"
+                    required
+                    maxLength={6}
+                    placeholder="123456"
+                    value={formData.otp}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B] focus:ring-1 focus:ring-[#0C4A3B] tracking-widest text-center font-mono text-lg"
+                  />
+                </div>
+              )}
+
+              {mode === 'forgot_password_reset' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#1C2B22]">New Password</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      name="newPassword"
+                      required
+                      placeholder="••••••••"
+                      value={formData.newPassword}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B] focus:ring-1 focus:ring-[#0C4A3B] pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#0C4A3B] text-white py-3.5 rounded-full font-semibold text-sm hover:bg-[#08362B] transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <span>{mode === 'forgot_password_email' ? 'Send OTP' : mode === 'forgot_password_otp' ? 'Verify OTP' : 'Reset Password'}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('signin')}
+                  className="w-full text-[#0C4A3B] mt-4 text-sm font-semibold hover:underline"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -213,7 +391,7 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#0C4A3B]">
                   Select Account Role
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   
                   {/* Patient Role */}
                   <button
@@ -322,6 +500,44 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                   {/* PATIENT ROLE SPECIFIC */}
                   {role === 'patient' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* UPLOAD PROFILE PICTURE */}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="block text-xs font-semibold text-[#1C2B22]">
+                          Profile Picture
+                        </label>
+                        <div className="border-2 border-dashed border-[#0C4A3B]/30 bg-[#0C4A3B]/[0.02] hover:bg-[#0C4A3B]/[0.05] rounded-2xl p-4 text-center transition-colors relative cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, 'profilePicture')}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          />
+                          {formData.profilePicturePreview ? (
+                            <div className="flex items-center gap-4 text-left">
+                              <img 
+                                src={formData.profilePicturePreview} 
+                                alt="Profile Preview" 
+                                className="w-12 h-12 object-cover rounded-full border border-[#E6E2D8]"
+                              />
+                              <div>
+                                <p className="text-xs font-semibold text-[#0C4A3B] flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5 text-[#0C4A3B]" /> Profile Photo Uploaded
+                                </p>
+                                <p className="text-[11px] text-gray-500">{formData.profilePictureFile?.name || 'profile_photo.jpg'}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-1 py-2">
+                              <Upload className="w-6 h-6 text-[#0C4A3B] mx-auto" />
+                              <p className="text-xs font-medium text-[#1C2B22]">
+                                Click or drag a Profile image here
+                              </p>
+                              <p className="text-[10px] text-[#5F6B63]">JPG, PNG, or WEBP up to 5MB</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="space-y-1.5">
                         <label className="block text-xs font-semibold text-[#1C2B22]">Phone Number</label>
                         <input
@@ -348,8 +564,82 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                         </select>
                       </div>
 
+                      <div className="space-y-1.5 sm:col-span-2 pt-2 border-t border-[#EBE7DE]">
+                        <h4 className="text-xs font-bold text-[#1C2B22] uppercase tracking-wider mb-2">Medical History</h4>
+                      </div>
+
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-[#1C2B22]">Emergency Contact Name</label>
+                        <label className="block text-xs font-semibold text-[#1C2B22]">Known Allergies (Comma separated)</label>
+                        <input
+                          type="text"
+                          name="allergies"
+                          placeholder="e.g., Penicillin, Peanuts"
+                          value={formData.allergies}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-[#1C2B22]">Chronic Conditions (Comma separated)</label>
+                        <input
+                          type="text"
+                          name="chronicConditions"
+                          placeholder="e.g., Asthma, Hypertension"
+                          value={formData.chronicConditions}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 sm:col-span-2 flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          name="organDonor"
+                          id="organDonor"
+                          checked={formData.organDonor}
+                          onChange={handleChange}
+                          className="w-5 h-5 rounded border-[#E6E2D8] text-[#0C4A3B] focus:ring-[#0C4A3B]"
+                        />
+                        <label htmlFor="organDonor" className="text-sm font-medium text-[#1C2B22]">
+                          I am a registered Organ Donor
+                        </label>
+                      </div>
+
+                      <div className="space-y-1.5 sm:col-span-2 pt-2 border-t border-[#EBE7DE]">
+                        <h4 className="text-xs font-bold text-[#1C2B22] uppercase tracking-wider mb-2">Primary Care Physician</h4>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-[#1C2B22]">Physician Name</label>
+                        <input
+                          type="text"
+                          name="physicianName"
+                          placeholder="Dr. Smith"
+                          value={formData.physicianName}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-[#1C2B22]">Physician Phone</label>
+                        <input
+                          type="tel"
+                          name="physicianPhone"
+                          placeholder="+1 (555) 777-8888"
+                          value={formData.physicianPhone}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#0C4A3B]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 sm:col-span-2 pt-2 border-t border-[#EBE7DE]">
+                        <h4 className="text-xs font-bold text-[#1C2B22] uppercase tracking-wider mb-2">Emergency Contacts</h4>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-[#1C2B22]">Primary Contact Name</label>
                         <input
                           type="text"
                           name="emergencyContactName"
@@ -361,7 +651,7 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-[#1C2B22]">Emergency Contact Phone</label>
+                        <label className="block text-xs font-semibold text-[#1C2B22]">Primary Contact Phone</label>
                         <input
                           type="tel"
                           name="emergencyContactPhone"
@@ -377,6 +667,43 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                   {/* AMBULANCE DRIVER SPECIFIC */}
                   {role === 'ambulance' && (
                     <div className="space-y-4">
+                      {/* UPLOAD PROFILE PICTURE */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-[#1C2B22]">
+                          Driver Profile Picture
+                        </label>
+                        <div className="border-2 border-dashed border-[#D9532F]/30 bg-[#D9532F]/[0.02] hover:bg-[#D9532F]/[0.05] rounded-2xl p-4 text-center transition-colors relative cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, 'profilePicture')}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          />
+                          {formData.profilePicturePreview ? (
+                            <div className="flex items-center gap-4 text-left">
+                              <img 
+                                src={formData.profilePicturePreview} 
+                                alt="Profile Preview" 
+                                className="w-12 h-12 object-cover rounded-full border border-[#E6E2D8]"
+                              />
+                              <div>
+                                <p className="text-xs font-semibold text-[#D9532F] flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5 text-[#D9532F]" /> Profile Photo Uploaded
+                                </p>
+                                <p className="text-[11px] text-gray-500">{formData.profilePictureFile?.name || 'profile.jpg'}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-1 py-2">
+                              <Upload className="w-6 h-6 text-[#D9532F] mx-auto" />
+                              <p className="text-xs font-medium text-[#1C2B22]">
+                                Click or drag Driver Profile image here
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="block text-xs font-semibold text-[#1C2B22]">Driving License Number</label>
@@ -392,6 +719,20 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                         </div>
 
                         <div className="space-y-1.5">
+                          <label className="block text-xs font-semibold text-[#1C2B22]">Years of Experience</label>
+                          <input
+                            type="number"
+                            name="yearsOfExperience"
+                            min="0"
+                            required
+                            placeholder="e.g., 5"
+                            value={formData.yearsOfExperience}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#D9532F]"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
                           <label className="block text-xs font-semibold text-[#1C2B22]">Vehicle Reg Number</label>
                           <input
                             type="text"
@@ -399,6 +740,18 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
                             required
                             placeholder="AMB-104-NYC"
                             value={formData.vehicleRegNo}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#D9532F]"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-semibold text-[#1C2B22]">Base Hospital (Optional)</label>
+                          <input
+                            type="text"
+                            name="baseHospital"
+                            placeholder="St. Jude General"
+                            value={formData.baseHospital}
                             onChange={handleChange}
                             className="w-full px-4 py-2.5 rounded-xl border border-[#E6E2D8] bg-white text-sm focus:outline-none focus:border-[#D9532F]"
                           />
@@ -534,6 +887,18 @@ export default function SignUpModal({ isOpen, onClose, onAuthSuccess, initialMod
 
                 </div>
               )}
+
+              <div className="flex justify-end mt-1">
+                {mode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => setMode('forgot_password_email')}
+                    className="text-xs font-medium text-[#0C4A3B] hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
 
               {/* Submit Button */}
               <button

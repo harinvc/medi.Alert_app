@@ -103,12 +103,26 @@ app.post('/api/auth/login', async (req, res) => {
 // 2b. Authentication Register API
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, role, name, phone, bloodGroup, unit, reg, hospital, department } = req.body;
+    const { 
+      email, password, role, name, phone, bloodGroup, unit, reg, hospital, department,
+      organDonor, allergies, chronicConditions, physicianName, physicianPhone, profilePicture, driverLicense, yearsOfExperience, emergencyContactName, emergencyContactPhone
+    } = req.body;
     
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    let emergencyContacts = [];
+    if (emergencyContactName && emergencyContactPhone) {
+      emergencyContacts.push({
+        id: `ec_${Date.now()}`,
+        name: emergencyContactName,
+        relationship: 'Primary Contact',
+        phone: emergencyContactPhone,
+        notifySms: true
+      });
     }
 
     const newUser = new User({
@@ -118,10 +132,19 @@ app.post('/api/auth/register', async (req, res) => {
       name: name || email.split('@')[0],
       phone,
       bloodGroup,
+      organDonor: organDonor || false,
+      allergies,
+      chronicConditions,
+      physicianName,
+      physicianPhone,
+      profilePicture,
+      driverLicense,
+      yearsOfExperience,
       unit,
       reg,
       hospital,
-      department
+      department,
+      emergencyContacts
     });
 
     await newUser.save();
@@ -140,6 +163,66 @@ app.get('/api/auth/demo/:role', async (req, res) => {
     } else {
       res.status(404).json({ success: false, message: 'No user found for role.' });
     }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 2c. Forgot Password Flow
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetOtp = otp;
+    user.resetOtpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save();
+
+    // Mock sending OTP
+    console.log(`\n===========================================`);
+    console.log(`✉️ MOCK EMAIL/SMS OTP FOR ${email}`);
+    console.log(`🔑 OTP CODE: ${otp}`);
+    console.log(`===========================================\n`);
+
+    res.json({ success: true, message: 'OTP sent successfully (Check backend console)', devOtp: otp });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user || user.resetOtp !== otp || user.resetOtpExpires < new Date()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+    
+    res.json({ success: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user || user.resetOtp !== otp || user.resetOtpExpires < new Date()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    user.password = newPassword;
+    user.resetOtp = undefined;
+    user.resetOtpExpires = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -24,8 +24,9 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
   const [isLocating, setIsLocating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeSOS, setActiveSOS] = useState(null);
-  const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: '100ft Road, Indiranagar, Sector 4' });
+  const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: 'Detecting location...' });
   const [cprCount, setCprCount] = useState(1);
+  const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_API_KEY || '6VYRpEtYjtPMoI6mh0Ef';
 
   // CPR Metronome rhythm counter (100 BPM pacing)
   useEffect(() => {
@@ -59,16 +60,61 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
     };
   }, [onEmergencyTriggered]);
 
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          fetch(`https://api.maptiler.com/geocoding/${lng},${lat}.json?key=${MAPTILER_KEY}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = (data && data.features && data.features.length > 0) ? data.features[0].place_name : `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address });
+            })
+            .catch(() => {
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address: 'Location found (Geocoding failed)' });
+            });
+        },
+        (err) => {
+          console.warn('Geolocation failed:', err);
+          setLocation({ lat: 'Unknown', lng: 'Unknown', address: 'Location access denied or unavailable' });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      setLocation({ lat: 'Unknown', lng: 'Unknown', address: 'Geolocation not supported' });
+    }
+  }, []);
+
   const handleSimulateGPS = () => {
     setIsLocating(true);
-    setTimeout(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setIsLocating(false);
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          fetch(`https://api.maptiler.com/geocoding/${lng},${lat}.json?key=${MAPTILER_KEY}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = (data && data.features && data.features.length > 0) ? data.features[0].place_name : `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address });
+            })
+            .catch(() => {
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address: 'Location found (Geocoding failed)' });
+            });
+        },
+        (err) => {
+          setIsLocating(false);
+          alert('Could not get live location. Please check browser permissions.');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
       setIsLocating(false);
-      setLocation({
-        lat: '12.9782° N',
-        lng: '77.6394° E',
-        address: '100ft Road, HAL 2nd Stage, Indiranagar (GPS Locked ± 4m)'
-      });
-    }, 1000);
+      alert('Geolocation not supported by this browser.');
+    }
   };
 
   const handleVoiceRecord = () => {
@@ -164,7 +210,15 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
             </div>
 
             <button
-              onClick={() => setActiveSOS(null)}
+              onClick={async () => {
+                if (activeSOS && activeSOS.id) {
+                  try {
+                    await fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/sos/${activeSOS.id}/complete`, { method: 'PUT' });
+                  } catch (e) { console.log(e); }
+                }
+                setActiveSOS(null);
+                if (onEmergencyTriggered) onEmergencyTriggered(null);
+              }}
               className="px-4 py-2 rounded-full bg-[#EBE7DE] hover:bg-[#D5CFB9] text-xs font-semibold text-[#1C2B22] flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-center"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Cancel SOS Demo
@@ -252,7 +306,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
               </div>
               <div className="pt-2 border-t border-[#EBE7DE] flex items-center justify-between text-xs font-semibold text-[#0C4A3B]">
                 <span>ETA: {activeSOS.driver?.eta || '3.4 mins'}</span>
-                <a href={`tel:${activeSOS.driver?.phone || '+15553920194'}`} className="flex items-center gap-1 text-[#D9532F] hover:underline">
+                <a href={`tel:${(activeSOS.driver?.phone || '+15553920194').replace(/[^\d+]/g, '')}`} className="flex items-center gap-1 text-[#D9532F] hover:underline">
                   <PhoneCall className="w-3.5 h-3.5" /> Call Driver
                 </a>
               </div>
@@ -306,15 +360,15 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
                 <button
                   onClick={() => handleTriggerSOS()}
                   disabled={isAnalyzing}
-                  className="relative group w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-[#D9532F] text-white font-bold text-3xl sm:text-4xl shadow-2xl flex flex-col items-center justify-center gap-1 transition-transform transform active:scale-95 cursor-pointer hover:bg-[#C24522]"
+                  className="relative group w-56 h-56 sm:w-72 sm:h-72 rounded-full bg-[#D9532F] text-white font-bold text-4xl sm:text-5xl shadow-2xl flex flex-col items-center justify-center gap-2 transition-transform transform active:scale-95 cursor-pointer hover:bg-[#C24522]"
                 >
                   {/* Outer Pulsing Pulse Rings */}
                   <span className="absolute inset-0 rounded-full border-4 border-[#D9532F] animate-ping opacity-60 pointer-events-none"></span>
                   <span className="absolute -inset-4 rounded-full border-2 border-[#D9532F]/40 animate-pulse pointer-events-none"></span>
 
-                  <ShieldAlert className="w-12 h-12 sm:w-14 sm:h-14 group-hover:scale-110 transition-transform" />
-                  <span className="tracking-widest">SOS</span>
-                  <span className="text-[10px] font-semibold tracking-normal text-white/80 uppercase">One-Tap Alert</span>
+                  <ShieldAlert className="w-16 h-16 sm:w-20 sm:h-20 group-hover:scale-110 transition-transform" />
+                  <span className="tracking-widest mt-2">SOS</span>
+                  <span className="text-xs font-semibold tracking-normal text-white/80 uppercase">One-Tap Alert</span>
                 </button>
               </div>
 

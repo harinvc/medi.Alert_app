@@ -41,7 +41,8 @@ import socket from '../../services/socket';
 
 const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta, activeCase) => {
   const trackingId = activeCase?.id || `SOS-${Math.floor(100000 + Math.random() * 900000)}`;
-  const trackingLink = `https://digital-leave-combining-tapes.trycloudflare.com/?track=${trackingId}`;
+  const baseUrl = import.meta.env.VITE_FRONTEND_URL || (window.location.hostname !== 'localhost' ? window.location.origin : 'https://medi-alert-app.onrender.com');
+  const trackingLink = `${baseUrl}/?track=${trackingId}`;
   const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -60,7 +61,7 @@ This is an automated MedAlert AI alert.`;
   const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
-  window.open(whatsappUrl, "_blank");
+  window.location.href = whatsappUrl;
 };
 
 export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
@@ -439,7 +440,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
           </div>
 
           {/* Quick Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             {/* Siren Toggle */}
             <button
               onClick={() => setSirenActive(!sirenActive)}
@@ -511,7 +512,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                 emergencyCase.emergencyContacts.map((contact, idx) => (
                   <React.Fragment key={idx}>
                     <a
-                      href={`tel:${contact.phone}`}
+                      href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
                       className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
                     >
                       <PhoneCall className="w-4 h-4" />
@@ -529,7 +530,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
               ) : (
                 <React.Fragment>
                   <a
-                    href={`tel:${emergencyCase.contactPhone}`}
+                    href={`tel:${emergencyCase.contactPhone.replace(/[^\d+]/g, '')}`}
                     className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
                   >
                     <PhoneCall className="w-4 h-4" />
@@ -760,7 +761,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                 </div>
 
                 <a
-                  href={`tel:${emergencyCase.hospital?.doctorPhone || '+15550192831'}`}
+                  href={`tel:${(emergencyCase.hospital?.doctorPhone || '+15550192831').replace(/[^\d+]/g, '')}`}
                   className="bg-[#0C4A3B] hover:bg-[#08362B] text-white font-bold px-5 py-3 rounded-2xl text-xs flex items-center gap-2 shadow text-decoration-none"
                 >
                   <Stethoscope className="w-4 h-4 text-[#72DFB4]" />

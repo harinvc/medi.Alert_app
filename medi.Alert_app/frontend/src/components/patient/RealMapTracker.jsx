@@ -458,7 +458,7 @@ export default function RealMapTracker({ activeSOS }) {
       
       {/* Location Search Bar & Geocoding Input */}
       <div className="bg-white p-3.5 rounded-2xl border border-[#E6E2D8] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <form onSubmit={handleLocationSearch} className="flex-1 w-full flex items-center gap-2">
+        <form onSubmit={handleLocationSearch} className="flex-1 w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <div className="relative flex-1">
             <input
               type="text"
@@ -472,7 +472,7 @@ export default function RealMapTracker({ activeSOS }) {
           <button
             type="submit"
             disabled={isSearching}
-            className="px-4 py-2 bg-[#0C4A3B] text-white text-xs font-semibold rounded-xl hover:bg-[#08362B] transition-colors shrink-0 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 bg-[#0C4A3B] text-white text-xs font-semibold rounded-xl hover:bg-[#08362B] transition-colors shrink-0 cursor-pointer"
           >
             {isSearching ? 'Searching...' : 'Find Hospitals'}
           </button>
@@ -489,8 +489,8 @@ export default function RealMapTracker({ activeSOS }) {
       </div>
 
       {/* Real-time Location Announcement & Voice Summary Bar */}
-      <div className="bg-[#0C4A3B] text-white p-3.5 rounded-2xl border border-[#72DFB4]/30 shadow flex items-center justify-between text-xs gap-3">
-        <div className="flex items-center gap-2.5 truncate">
+      <div className="bg-[#0C4A3B] text-white p-3.5 rounded-2xl border border-[#72DFB4]/30 shadow flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs gap-3">
+        <div className="flex items-center gap-2.5 truncate w-full sm:w-auto">
           <MapPin className="w-4 h-4 text-[#72DFB4] shrink-0" />
           <div className="truncate">
             <span className="text-gray-300 text-[11px] block">CURRENT LOCATION</span>
@@ -499,9 +499,9 @@ export default function RealMapTracker({ activeSOS }) {
         </div>
 
         {selectedHospital && (
-          <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 shrink-0 text-right">
+          <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 shrink-0 sm:text-right w-full sm:w-auto">
             <span className="text-[10px] text-[#72DFB4] uppercase block font-bold">NEAREST MATCHED HOSPITAL</span>
-            <span className="font-semibold text-white text-xs">{selectedHospital.name} ({selectedHospital.distance})</span>
+            <span className="font-semibold text-white text-xs block truncate">{selectedHospital.name} ({selectedHospital.distance})</span>
           </div>
         )}
       </div>

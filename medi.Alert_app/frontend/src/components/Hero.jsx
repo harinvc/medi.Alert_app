@@ -93,7 +93,7 @@ export default function Hero({ onOpenAuth }) {
           <div className="lg:col-span-5 flex justify-center items-center">
             <div 
               style={radar3DStyle} 
-              className="relative w-80 h-80 sm:w-[420px] sm:h-[420px] flex items-center justify-center preserve-3d"
+              className="relative w-[280px] h-[280px] sm:w-[420px] sm:h-[420px] flex items-center justify-center preserve-3d"
             >
               
               {/* Outer Radar Circle 3 with 3D Depth Shadow */}
