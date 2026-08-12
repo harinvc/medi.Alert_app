@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  AlertTriangle, 
-  Mic, 
-  Send, 
-  Sparkles, 
-  MapPin, 
-  CheckCircle2, 
-  ShieldAlert, 
-  PhoneCall, 
+import {
+  AlertTriangle,
+  Mic,
+  Send,
+  Sparkles,
+  MapPin,
+  CheckCircle2,
+  ShieldAlert,
+  PhoneCall,
   RotateCcw,
   Activity,
   Ambulance,
@@ -24,8 +24,9 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
   const [isLocating, setIsLocating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeSOS, setActiveSOS] = useState(null);
-  const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: '100ft Road, Indiranagar, Sector 4' });
+  const [location, setLocation] = useState({ lat: '12.9716° N', lng: '77.5946° E', address: 'Detecting location...' });
   const [cprCount, setCprCount] = useState(1);
+  const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_API_KEY || '6VYRpEtYjtPMoI6mh0Ef';
 
   // CPR Metronome rhythm counter (100 BPM pacing)
   useEffect(() => {
@@ -38,11 +39,12 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
   // Fetch initial active SOS from backend if exists
   useEffect(() => {
-    fetch('http://localhost:5000/api/sos/active')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
-          // Sync backend state
+          setActiveSOS(data.sos);
+          if (onEmergencyTriggered) onEmergencyTriggered(data.sos);
         }
       })
       .catch(err => console.log('Backend connection notice:', err));
@@ -58,16 +60,61 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
     };
   }, [onEmergencyTriggered]);
 
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          fetch(`https://api.maptiler.com/geocoding/${lng},${lat}.json?key=${MAPTILER_KEY}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = (data && data.features && data.features.length > 0) ? data.features[0].place_name : `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address });
+            })
+            .catch(() => {
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address: 'Location found (Geocoding failed)' });
+            });
+        },
+        (err) => {
+          console.warn('Geolocation failed:', err);
+          setLocation({ lat: 'Unknown', lng: 'Unknown', address: 'Location access denied or unavailable' });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      setLocation({ lat: 'Unknown', lng: 'Unknown', address: 'Geolocation not supported' });
+    }
+  }, []);
+
   const handleSimulateGPS = () => {
     setIsLocating(true);
-    setTimeout(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setIsLocating(false);
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          fetch(`https://api.maptiler.com/geocoding/${lng},${lat}.json?key=${MAPTILER_KEY}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = (data && data.features && data.features.length > 0) ? data.features[0].place_name : `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address });
+            })
+            .catch(() => {
+              setLocation({ lat: `${lat.toFixed(4)}° N`, lng: `${lng.toFixed(4)}° E`, address: 'Location found (Geocoding failed)' });
+            });
+        },
+        (err) => {
+          setIsLocating(false);
+          alert('Could not get live location. Please check browser permissions.');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
       setIsLocating(false);
-      setLocation({
-        lat: '12.9782° N',
-        lng: '77.6394° E',
-        address: '100ft Road, HAL 2nd Stage, Indiranagar (GPS Locked ± 4m)'
-      });
-    }, 1000);
+      alert('Geolocation not supported by this browser.');
+    }
   };
 
   const handleVoiceRecord = () => {
@@ -83,19 +130,23 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
     const textToUse = presetText || symptomText || "Emergency SOS Triggered! Immediate Assistance Required.";
     setIsAnalyzing(true);
 
+    const sosPayload = {
+      symptoms: textToUse,
+      location: location.address,
+      patientName: medicalProfile?.name || 'Alex Johnson',
+      allergies: medicalProfile?.allergies || 'Penicillin, Latex',
+      chronicConditions: medicalProfile?.chronicConditions || 'None',
+      medicalHistory: medicalProfile?.medicalHistory || [],
+      bloodGroup: medicalProfile?.bloodGroup || 'O+',
+      emergencyContacts: emergencyContacts?.map(c => ({ name: c.name, phone: c.phone, relationship: c.relationship })) || []
+    };
+
     try {
-      // Call REST API to create SOS on backend
-      const res = await fetch('http://localhost:5000/api/sos/create', {
+      // Call REST API to trigger SOS on backend
+      const res = await fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/trigger", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symptoms: textToUse,
-          location: location.address,
-          patientName: medicalProfile?.name || 'Alex Johnson',
-          allergies: medicalProfile?.allergies || 'Penicillin, Latex',
-          bloodGroup: medicalProfile?.bloodGroup || 'O+',
-          contactPhone: emergencyContacts?.[0]?.phone || '+1 (555) 392-0194'
-        })
+        body: JSON.stringify(sosPayload)
       });
 
       const data = await res.json();
@@ -119,47 +170,15 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
         if (onEmergencyTriggered) onEmergencyTriggered(sosData);
       }
     } catch (err) {
-      console.warn('Backend API connection notice, running dynamic client fallback:', err);
+      console.error('Backend API connection failed:', err);
       setIsAnalyzing(false);
-
-      const sosData = {
-        id: `SOS-${Math.floor(100000 + Math.random() * 900000)}`,
-        timestamp: new Date().toLocaleTimeString(),
-        symptoms: textToUse,
-        location: location.address,
-        aiAnalysis: {
-          emergency: textToUse.toLowerCase().includes('chest') ? "Acute Myocardial Infarction" : "Severe Trauma / Acute Distress",
-          severity: "Critical",
-          priority: "RED",
-          department: textToUse.toLowerCase().includes('chest') ? "Cardiology ER" : "Emergency Trauma Bay",
-          recommendation: "Immediate Level-1 Dispatch · ER Bed Lock Active"
-        },
-        driver: {
-          name: "Marcus Vance",
-          phone: "+1 (555) 392-0194",
-          licenseNo: "DL-98472910-X",
-          vehicleReg: "AMB-104-NYC",
-          photo: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&q=80&w=200",
-          eta: "3.4 mins",
-          distance: "1.8 km away"
-        },
-        hospital: {
-          name: "City Cardiac & Emergency Institute",
-          department: "Cardiology ER · Bed #4 Reserved",
-          address: "45 Healthcare Boulevard",
-          distance: "2.5 km"
-        },
-        contactsNotified: (emergencyContacts || []).map(c => c.name)
-      };
-
-      setActiveSOS(sosData);
-      if (onEmergencyTriggered) onEmergencyTriggered(sosData);
+      alert('Failed to trigger SOS. Please ensure you have an active connection to the emergency server.');
     }
   };
 
   return (
     <div className="space-y-8 text-left">
-      
+
       {/* Top Banner */}
       <div className="bg-[#0C4A3B] text-white p-6 sm:p-8 rounded-3xl relative overflow-hidden shadow-xl border border-[#72DFB4]/20">
         <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-br from-[#72DFB4]/20 to-transparent rounded-full blur-2xl pointer-events-none"></div>
@@ -180,7 +199,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       {activeSOS ? (
         /* Active SOS Dispatch Panel */
         <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-[#D9532F] shadow-2xl space-y-6 animate-in fade-in zoom-in duration-300">
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#F2EEE6] pb-5">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-[#D9532F] text-white flex items-center justify-center shadow-lg animate-pulse">
@@ -193,7 +212,15 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
             </div>
 
             <button
-              onClick={() => setActiveSOS(null)}
+              onClick={async () => {
+                if (activeSOS && activeSOS.id) {
+                  try {
+                    await fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/sos/${activeSOS.id}/complete`, { method: 'PUT' });
+                  } catch (e) { console.log(e); }
+                }
+                setActiveSOS(null);
+                if (onEmergencyTriggered) onEmergencyTriggered(null);
+              }}
               className="px-4 py-2 rounded-full bg-[#EBE7DE] hover:bg-[#D5CFB9] text-xs font-semibold text-[#1C2B22] flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-center"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Cancel SOS Demo
@@ -266,7 +293,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
           {/* Dispatch Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
+
             {/* Driver Card */}
             <div className="bg-[#FAF8F5] p-5 rounded-2xl border border-[#E6E2D8] space-y-3">
               <span className="text-[10px] font-bold text-[#D9532F] uppercase tracking-wider block">Assigned Ambulance</span>
@@ -281,7 +308,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
               </div>
               <div className="pt-2 border-t border-[#EBE7DE] flex items-center justify-between text-xs font-semibold text-[#0C4A3B]">
                 <span>ETA: {activeSOS.driver?.eta || '3.4 mins'}</span>
-                <a href={`tel:${activeSOS.driver?.phone || '+15553920194'}`} className="flex items-center gap-1 text-[#D9532F] hover:underline">
+                <a href={`tel:${(activeSOS.driver?.phone || '+15553920194').replace(/[^\d+]/g, '')}`} className="flex items-center gap-1 text-[#D9532F] hover:underline">
                   <PhoneCall className="w-3.5 h-3.5" /> Call Driver
                 </a>
               </div>
@@ -316,14 +343,14 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       ) : (
         /* Standard SOS Trigger Interface */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Main SOS Trigger Button Card */}
           <div className="lg:col-span-6">
-            <TiltCard 
-              maxDegree={6} 
+            <TiltCard
+              maxDegree={6}
               className="bg-white/90 backdrop-blur-md rounded-3xl p-8 border border-[#E6E2D8] shadow-xl text-center space-y-8"
             >
-              
+
               <div className="space-y-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#D9532F]">Emergency Action</span>
                 <h3 className="text-2xl font-serif-heading font-bold text-[#1C2B22]">Press & Hold to Request Help</h3>
@@ -335,15 +362,15 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
                 <button
                   onClick={() => handleTriggerSOS()}
                   disabled={isAnalyzing}
-                  className="relative group w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-[#D9532F] text-white font-bold text-3xl sm:text-4xl shadow-2xl flex flex-col items-center justify-center gap-1 transition-transform transform active:scale-95 cursor-pointer hover:bg-[#C24522]"
+                  className="relative group w-56 h-56 sm:w-72 sm:h-72 rounded-full bg-[#D9532F] text-white font-bold text-4xl sm:text-5xl shadow-2xl flex flex-col items-center justify-center gap-2 transition-transform transform active:scale-95 cursor-pointer hover:bg-[#C24522]"
                 >
                   {/* Outer Pulsing Pulse Rings */}
                   <span className="absolute inset-0 rounded-full border-4 border-[#D9532F] animate-ping opacity-60 pointer-events-none"></span>
                   <span className="absolute -inset-4 rounded-full border-2 border-[#D9532F]/40 animate-pulse pointer-events-none"></span>
 
-                  <ShieldAlert className="w-12 h-12 sm:w-14 sm:h-14 group-hover:scale-110 transition-transform" />
-                  <span className="tracking-widest">SOS</span>
-                  <span className="text-[10px] font-semibold tracking-normal text-white/80 uppercase">One-Tap Alert</span>
+                  <ShieldAlert className="w-16 h-16 sm:w-20 sm:h-20 group-hover:scale-110 transition-transform" />
+                  <span className="tracking-widest mt-2">SOS</span>
+                  <span className="text-xs font-semibold tracking-normal text-white/80 uppercase">One-Tap Alert</span>
                 </button>
               </div>
 
@@ -353,8 +380,8 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
                   <MapPin className="w-4 h-4 text-[#D9532F]" />
                   <span className="font-semibold text-[#1C2B22] truncate max-w-[220px]">{location.address}</span>
                 </div>
-                <button 
-                  onClick={handleSimulateGPS} 
+                <button
+                  onClick={handleSimulateGPS}
                   disabled={isLocating}
                   className="text-[#0C4A3B] font-bold hover:underline cursor-pointer shrink-0"
                 >
@@ -367,7 +394,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
 
           {/* Voice / Text Symptom Inputs & Quick Presets */}
           <div className="lg:col-span-6 space-y-6">
-            
+
             {/* Quick Emergency Symptoms Box */}
             <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-[#E6E2D8] shadow-xl space-y-6">
               <div className="space-y-1">
@@ -388,9 +415,8 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
                   <button
                     onClick={handleVoiceRecord}
                     disabled={isRecording}
-                    className={`absolute right-3 bottom-3 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      isRecording ? 'bg-[#D9532F] text-white animate-pulse' : 'bg-[#E8F0EC] text-[#0C4A3B] hover:bg-[#0C4A3B] hover:text-white'
-                    }`}
+                    className={`absolute right-3 bottom-3 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${isRecording ? 'bg-[#D9532F] text-white animate-pulse' : 'bg-[#E8F0EC] text-[#0C4A3B] hover:bg-[#0C4A3B] hover:text-white'
+                      }`}
                   >
                     <Mic className="w-4 h-4" />
                     <span>{isRecording ? 'Listening...' : 'Voice'}</span>

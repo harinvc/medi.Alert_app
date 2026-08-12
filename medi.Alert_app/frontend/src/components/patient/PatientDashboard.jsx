@@ -20,55 +20,28 @@ import LiveAmbulanceTracker from './LiveAmbulanceTracker';
 import EmergencyContacts from './EmergencyContacts';
 import MedicalProfile from './MedicalProfile';
 import EmergencyHistory from './EmergencyHistory';
+import NearbyHospitals from './NearbyHospitals';
+import { Building2 } from 'lucide-react'; // Icon for hospitals
 
 export default function PatientDashboard({ user, onBackToLanding }) {
-  const [activeTab, setActiveTab] = useState('sos'); // 'sos', 'tracking', 'contacts', 'profile', 'history'
+  const [activeTab, setActiveTab] = useState('sos'); // 'sos', 'tracking', 'contacts', 'profile', 'history', 'hospitals'
   const [activeSOS, setActiveSOS] = useState(null);
 
-  // Mock initial emergency contacts
-  const [contacts, setContacts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('medalert_contacts');
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : [
-        { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
-        { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
-      ];
-    } catch (e) {
-      return [
-        { id: 'c1', name: 'Eleanor Vance', relationship: 'Spouse', phone: '+1 (555) 392-0194', notifySms: true },
-        { id: 'c2', name: 'Dr. Arthur Pendelton', relationship: 'Personal Physician', phone: '+1 (555) 882-9401', notifySms: true }
-      ];
-    }
+  // Dynamic emergency contacts from DB
+  const [contacts, setContacts] = useState(user?.emergencyContacts || []);
+
+  // Dynamic Patient Medical Profile from DB
+  const [medicalProfile, setMedicalProfile] = useState({
+    name: user?.name || 'Emergency Patient',
+    email: user?.email || 'patient@medalert.org',
+    phone: user?.phone || '+1 (555) 000-0000',
+    bloodGroup: user?.bloodGroup || 'Unknown',
+    organDonor: user?.organDonor !== undefined ? user.organDonor : true,
+    allergies: user?.allergies || 'Severe Penicillin allergy, Latex sensitivity',
+    chronicConditions: user?.chronicConditions || 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
+    physicianName: user?.physicianName || 'Dr. Arthur Pendelton',
+    physicianPhone: user?.physicianPhone || '+1 (555) 882-9401'
   });
-
-  // Dynamic Patient Medical Profile (Sync with user entered name & email)
-  const [medicalProfile, setMedicalProfile] = useState(() => {
-    const defaultProfile = {
-      name: user?.name || 'Alex Johnson',
-      email: user?.email || 'alex.johnson@gmail.com',
-      phone: user?.phone || '+1 (555) 019-2834',
-      bloodGroup: user?.bloodGroup || 'O+',
-      organDonor: true,
-      allergies: 'Severe Penicillin allergy, Latex sensitivity',
-      chronicConditions: 'Hypertension (managed with Lysinopril 10mg), Mild Asthma',
-      physicianName: 'Dr. Arthur Pendelton',
-      physicianPhone: '+1 (555) 882-9401'
-    };
-    try {
-      const saved = localStorage.getItem('medalert_profile');
-      return (saved && saved !== 'undefined') ? JSON.parse(saved) : defaultProfile;
-    } catch (e) {
-      return defaultProfile;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('medalert_contacts', JSON.stringify(contacts));
-  }, [contacts]);
-
-  useEffect(() => {
-    localStorage.setItem('medalert_profile', JSON.stringify(medicalProfile));
-  }, [medicalProfile]);
 
   // Sync profile if user prop updates from auth
   useEffect(() => {
@@ -78,38 +51,18 @@ export default function PatientDashboard({ user, onBackToLanding }) {
         name: user.name,
         email: user.email || prev.email,
         phone: user.phone || prev.phone,
-        bloodGroup: user.bloodGroup || prev.bloodGroup
+        bloodGroup: user.bloodGroup || prev.bloodGroup,
+        organDonor: user.organDonor !== undefined ? user.organDonor : prev.organDonor,
+        allergies: user.allergies || prev.allergies,
+        chronicConditions: user.chronicConditions || prev.chronicConditions,
+        physicianName: user.physicianName || prev.physicianName,
+        physicianPhone: user.physicianPhone || prev.physicianPhone
       }));
     }
   }, [user]);
 
-  // Mock emergency history logs
-  const [historyLogs] = useState([
-    {
-      id: 'SOS-849120',
-      date: '2026-07-14',
-      time: '14:22 PM',
-      priority: 'RED',
-      emergencyType: 'Acute Chest Pain / Angina',
-      location: '100ft Road, Indiranagar',
-      hospitalName: 'City Cardiac Institute',
-      department: 'Cardiology ER · Bed #2',
-      responseTime: '5.4 mins',
-      aiSummary: 'Patient presented with sudden onset precordial chest discomfort. Dispatched Ambulance #04 with ECG telemetry. Heparin admin on route.'
-    },
-    {
-      id: 'SOS-301948',
-      date: '2026-05-02',
-      time: '09:15 AM',
-      priority: 'AMBER',
-      emergencyType: 'Acute Asthmatic Bronchospasm',
-      location: 'Halasuru Metro Station',
-      hospitalName: 'St. Jude General Hospital',
-      department: 'Pulmonology ER',
-      responseTime: '6.8 mins',
-      aiSummary: 'Bronchospasm secondary to pollen allergen exposure. Nebulized Albuterol administered during transit.'
-    }
-  ]);
+  // Dynamic emergency history logs from DB
+  const [historyLogs, setHistoryLogs] = useState(user?.medicalHistory || []);
 
   const handleEmergencyTriggered = (sosData) => {
     setActiveSOS(sosData);
@@ -121,28 +74,28 @@ export default function PatientDashboard({ user, onBackToLanding }) {
       
       {/* Sleek Top Header Navigation Bar */}
       <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-2 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 overflow-hidden">
             <button
               onClick={onBackToLanding}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0"
               title="Return to Main Website"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Landing</span>
             </button>
 
-            <div className="h-6 w-[1px] bg-white/20"></div>
+            <div className="h-6 w-[1px] bg-white/20 shrink-0"></div>
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white text-[#0C4A3B] flex items-center justify-center shadow-sm">
-                <Activity className="w-5 h-5 text-[#0C4A3B]" />
+            <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-hidden">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-white text-[#0C4A3B] flex items-center justify-center shadow-sm shrink-0">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#0C4A3B]" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-serif-heading text-lg font-bold text-white tracking-tight">Patient Portal</span>
-                  <span className="text-[10px] bg-[#72DFB4] text-[#0C4A3B] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono shadow-sm">
+              <div className="truncate">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-2 leading-tight">
+                  <span className="font-serif-heading text-sm sm:text-lg font-bold text-white tracking-tight whitespace-nowrap">Patient Portal</span>
+                  <span className="text-[8px] sm:text-[10px] bg-[#72DFB4] text-[#0C4A3B] font-bold px-1.5 sm:px-2 py-0.5 rounded-full uppercase tracking-wider font-mono shadow-sm leading-none whitespace-nowrap">
                     LIVE SOS CONNECTED
                   </span>
                 </div>
@@ -183,65 +136,80 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           
           <button
             onClick={() => setActiveTab('sos')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'sos'
                 ? 'bg-[#D9532F] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
-            <span>🚨 One-Tap SOS</span>
+            <span>One-Tap SOS</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('hospitals')}
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'hospitals'
+                ? 'bg-[#0C4A3B] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Hospitals</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tracking')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative whitespace-nowrap ${
               activeTab === 'tracking'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Ambulance className="w-4 h-4 text-[#72DFB4]" />
-            <span>🧭 Live Ambulance Tracking</span>
+            <span>Live Ambulance Tracking</span>
             {activeSOS && (
-              <span className="w-2.5 h-2.5 rounded-full bg-[#D9532F] animate-ping absolute top-2 right-3"></span>
+              <span className="relative flex h-2 w-2 ml-1 -mt-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D9532F] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D9532F]"></span>
+              </span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab('contacts')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'contacts'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>👥 Emergency Contacts ({contacts.length})</span>
+            <span>Emergency Contacts ({contacts.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'profile'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <UserCheck className="w-4 h-4" />
-            <span>📋 Medical Profile</span>
+            <span>Medical Profile</span>
           </button>
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'history'
                 ? 'bg-[#0C4A3B] text-white shadow'
                 : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>🕒 Emergency History</span>
+            <span>Emergency History</span>
           </button>
 
         </div>
@@ -265,6 +233,7 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           <EmergencyContacts 
             contacts={contacts} 
             onUpdateContacts={setContacts} 
+            activeSOS={activeSOS}
           />
         )}
 
@@ -281,10 +250,14 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           />
         )}
 
+        {activeTab === 'hospitals' && (
+          <NearbyHospitals />
+        )}
+
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E5E2D9] px-2 py-2 flex items-center justify-around shadow-xl">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#E5E2D9] px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-xl">
         <button
           onClick={() => setActiveTab('sos')}
           className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition-all ${
@@ -295,6 +268,18 @@ export default function PatientDashboard({ user, onBackToLanding }) {
             <ShieldAlert className="w-5 h-5" />
           </div>
           <span>SOS</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('hospitals')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition-all ${
+            activeTab === 'hospitals' ? 'text-[#0C4A3B]' : 'text-gray-500'
+          }`}
+        >
+          <div className={`p-1.5 rounded-full ${activeTab === 'hospitals' ? 'bg-[#0C4A3B]/10' : ''}`}>
+            <Building2 className="w-5 h-5" />
+          </div>
+          <span>Hospitals</span>
         </button>
 
         <button
@@ -348,6 +333,19 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           <span>History</span>
         </button>
       </div>
+
+      {/* Floating Action Button (FAB) for SOS - Visible when not on SOS tab */}
+      {activeTab !== 'sos' && (
+        <button
+          onClick={() => setActiveTab('sos')}
+          className="fixed bottom-24 right-6 md:bottom-10 md:right-10 z-50 w-16 h-16 md:w-20 md:h-20 bg-[#D9532F] text-white rounded-full shadow-2xl flex flex-col items-center justify-center border-4 border-white hover:bg-[#C24522] transition-transform transform hover:scale-105 active:scale-95 animate-bounce"
+          title="Emergency SOS"
+        >
+          <ShieldAlert className="w-6 h-6 md:w-8 md:h-8" />
+          <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest mt-0.5">SOS</span>
+          <span className="absolute -inset-2 rounded-full border-2 border-[#D9532F]/50 animate-ping pointer-events-none"></span>
+        </button>
+      )}
 
       {/* Patient Footer */}
       <footer className="hidden sm:block border-t border-[#E5E2D9] py-4 text-center text-xs text-[#5F6B63] bg-white">

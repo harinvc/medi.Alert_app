@@ -6,10 +6,12 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 
 // Models
-const User = require('./models/User');
-const SOS = require('./models/SOS');
 const Bed = require('./models/Bed');
 const MedicationOrder = require('./models/MedicationOrder');
+const EmergencyCase = require('./models/EmergencyCase');
+const Hospital = require('./models/Hospital');
+const User = require('./models/User');
+const sosRoutes = require('./routes/sos.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -19,9 +21,8 @@ connectDB();
 
 // Enable CORS for frontend clients
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
 app.use(express.json());
@@ -29,88 +30,12 @@ app.use(express.json());
 // Initialize Socket.io Server
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
 
-// Seed data function (runs on startup to populate if empty)
-const seedDatabase = async () => {
-  try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      await User.insertMany([
-        { email: 'alex.johnson@gmail.com', password: 'password123', role: 'patient', name: 'Alex Johnson', phone: '+1 (555) 019-2834', bloodGroup: 'O+' },
-        { email: 'driver@medalert.ai', password: 'password123', role: 'driver', name: 'Marcus Vance', unit: 'AMB-UNIT-04', reg: 'AMB-104-NYC' },
-        { email: 'doctor@medalert.ai', password: 'password123', role: 'doctor', name: 'Dr. Sarah Jenkins', hospital: 'City Cardiac & Emergency Institute', department: 'Lead Emergency Cardiologist' }
-      ]);
-      console.log('Seeded Users');
-    }
-
-    const bedCount = await Bed.countDocuments();
-    if (bedCount === 0) {
-      await Bed.insertMany([
-        { id: 1, name: 'Bed #1', status: 'Occupied', patient: 'Sam W.', type: 'Trauma' },
-        { id: 2, name: 'Bed #2', status: 'Occupied', patient: 'Elena R.', type: 'General' },
-        { id: 3, name: 'Bed #3', status: 'Available', patient: null, type: 'General' },
-        { id: 4, name: 'Bed #4', status: 'Reserved (Locked)', patient: 'Alex Johnson (Incoming)', type: 'Cardiology ER' },
-        { id: 5, name: 'Bed #5', status: 'Occupied', patient: 'Chris P.', type: 'ICU' },
-        { id: 6, name: 'Bed #6', status: 'Sanitizing', patient: null, type: 'Trauma' },
-        { id: 7, name: 'Bed #7', status: 'Reserved (Locked)', patient: 'Rachel Green (Incoming)', type: 'Orthopedic' },
-        { id: 8, name: 'Bed #8', status: 'Available', patient: null, type: 'General' }
-      ]);
-      console.log('Seeded Beds');
-    }
-
-    const sosCount = await SOS.countDocuments();
-    if (sosCount === 0) {
-      await SOS.create({
-        id: `SOS-849120`,
-        status: 'DISPATCHED',
-        priority: 'RED',
-        patientName: 'Alex Johnson',
-        ageGender: '62yo Male',
-        location: '100ft Road, HAL Indiranagar, Sector 4',
-        condition: 'Acute Distress / Chest Pain',
-        allergies: 'Penicillin, Latex',
-        symptoms: 'Severe crushing chest pain radiating down left arm',
-        vitals: {
-          heartRate: 112,
-          bp: '142/90',
-          spo2: 94,
-          respRate: 22,
-          shockIndex: 0.79,
-          shockStatus: 'CARDIOGENIC SHOCK RISK: ELEVATED'
-        },
-        telemetry: {
-          speed: 72,
-          lat: 12.9782,
-          lng: 77.6394,
-          greenCorridor: true,
-          eta: '3.0 min'
-        },
-        driver: {
-          name: 'Marcus Vance',
-          unit: 'AMB-UNIT-04',
-          vehicleReg: 'AMB-104-NYC',
-          phone: '+1 (555) 392-0194'
-        },
-        hospital: {
-          name: 'City Cardiac & Emergency Institute',
-          rating: 4.9,
-          bed: 'Cardiology Bed #4 (Locked)',
-          address: '45 Healthcare Boulevard',
-          doctor: 'Dr. Sarah Jenkins (Cardiology Lead)',
-          doctorPhone: '+1 (555) 019-2831'
-        }
-      });
-      console.log('Seeded Initial SOS');
-    }
-  } catch (error) {
-    console.error('Error seeding database:', error);
-  }
-};
-seedDatabase();
+// seedDatabase() logic has been moved to a standalone seed.js file.
 
 // REST API ROUTES
 
@@ -162,97 +87,155 @@ app.get('/api/health', (req, res) => {
 // 2. Authentication Login API
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password, role } = req.body;
-    let user = await User.findOne({ email });
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
 
-    if (!user && role) {
-      user = await User.findOne({ role });
-    }
-
-    if (user) {
-      // NOTE: Passwords are not hashed here for prototype purposes
+    if (user && user.password === password) {
       return res.json({ success: true, user, token: `token_${user._id}_${Date.now()}` });
     }
 
-    // Fallback auto-provision for demo
-    const newUser = await User.create({
-      email: email || 'user@medalert.ai',
-      password: password || 'password123',
-      name: email ? email.split('@')[0] : 'Emergency User',
-      role: role || 'patient'
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 2b. Authentication Register API
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { 
+      email, password, role, name, phone, bloodGroup, unit, reg, hospital, department,
+      organDonor, allergies, chronicConditions, physicianName, physicianPhone, profilePicture, driverLicense, yearsOfExperience, emergencyContactName, emergencyContactPhone
+    } = req.body;
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    let emergencyContacts = [];
+    if (emergencyContactName && emergencyContactPhone) {
+      emergencyContacts.push({
+        id: `ec_${Date.now()}`,
+        name: emergencyContactName,
+        relationship: 'Primary Contact',
+        phone: emergencyContactPhone,
+        notifySms: true
+      });
+    }
+
+    const newUser = new User({
+      email,
+      password,
+      role: role === 'ambulance' ? 'driver' : role, // map ambulance to driver role in DB
+      name: name || email.split('@')[0],
+      phone,
+      bloodGroup,
+      organDonor: organDonor || false,
+      allergies,
+      chronicConditions,
+      physicianName,
+      physicianPhone,
+      profilePicture,
+      driverLicense,
+      yearsOfExperience,
+      unit,
+      reg,
+      hospital,
+      department,
+      emergencyContacts
     });
 
-    res.json({ success: true, user: newUser, token: `token_${newUser._id}_${Date.now()}` });
+    await newUser.save();
+    return res.json({ success: true, user: newUser, token: `token_${newUser._id}_${Date.now()}` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 3. Create Emergency SOS API
-app.post('/api/sos/create', async (req, res) => {
+// Demo Route to fetch first user by role
+app.get('/api/auth/demo/:role', async (req, res) => {
   try {
-    const { symptoms, location, patientName, bloodGroup, allergies, contactPhone } = req.body;
-
-    const newSos = await SOS.create({
-      id: `SOS-${Math.floor(100000 + Math.random() * 900000)}`,
-      status: 'DISPATCHED',
-      priority: symptoms && symptoms.toLowerCase().includes('chest') ? 'RED' : 'RED',
-      patientName: patientName || 'Alex Johnson',
-      ageGender: '62yo Male',
-      location: location || '100ft Road, HAL Indiranagar, Sector 4',
-      condition: symptoms || 'Acute Distress / Chest Pain',
-      allergies: allergies || 'Penicillin, Latex',
-      symptoms: symptoms || 'Severe crushing chest pain radiating down left arm',
-      contactPhone: contactPhone || '+1 (555) 392-0194',
-      vitals: {
-        heartRate: 112,
-        bp: '142/90',
-        spo2: 94,
-        respRate: 22,
-        shockIndex: 0.79,
-        shockStatus: 'CARDIOGENIC SHOCK RISK: ELEVATED'
-      },
-      telemetry: {
-        speed: 72,
-        lat: 12.9782,
-        lng: 77.6394,
-        greenCorridor: true,
-        eta: '3.0 min'
-      },
-      driver: {
-        name: 'Marcus Vance',
-        unit: 'AMB-UNIT-04',
-        vehicleReg: 'AMB-104-NYC',
-        phone: '+1 (555) 392-0194'
-      },
-      hospital: {
-        name: 'City Cardiac & Emergency Institute',
-        rating: 4.9,
-        bed: 'Cardiology Bed #4 (Locked)',
-        address: '45 Healthcare Boulevard',
-        doctor: 'Dr. Sarah Jenkins (Cardiology Lead)',
-        doctorPhone: '+1 (555) 019-2831'
-      }
-    });
-
-    // Broadcast SOS event to all connected WebSockets
-    io.emit('sos:broadcast', newSos);
-
-    res.json({ success: true, sos: newSos });
+    const user = await User.findOne({ role: req.params.role });
+    if (user) {
+      res.json({ success: true, user });
+    } else {
+      res.status(404).json({ success: false, message: 'No user found for role.' });
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 4. Get Active Emergency SOS API
-app.get('/api/sos/active', async (req, res) => {
+// 2c. Forgot Password Flow
+app.post('/api/auth/forgot-password', async (req, res) => {
   try {
-    const sos = await SOS.findOne().sort({ createdAt: -1 }); // Get the latest SOS
-    res.json({ success: true, sos });
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetOtp = otp;
+    user.resetOtpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save();
+
+    // Mock sending OTP
+    console.log(`\n===========================================`);
+    console.log(`✉️ MOCK EMAIL/SMS OTP FOR ${email}`);
+    console.log(`🔑 OTP CODE: ${otp}`);
+    console.log(`===========================================\n`);
+
+    res.json({ success: true, message: 'OTP sent successfully (Check backend console)', devOtp: otp });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user || user.resetOtp !== otp || user.resetOtpExpires < new Date()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+    
+    res.json({ success: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user || user.resetOtp !== otp || user.resetOtpExpires < new Date()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    user.password = newPassword;
+    user.resetOtp = undefined;
+    user.resetOtpExpires = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Attach io to req for controllers
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
+// 3. SOS Routes
+app.use('/api/sos', sosRoutes);
 
 // 5. Get ER Beds Status API
 app.get('/api/beds/status', async (req, res) => {
@@ -268,7 +251,7 @@ app.get('/api/beds/status', async (req, res) => {
 app.post('/api/doctor/protocol', async (req, res) => {
   try {
     const { doctorName, medication, dosage, bedId } = req.body;
-    
+
     const order = await MedicationOrder.create({
       id: `ord_${Date.now()}`,
       doctorName: doctorName || 'Dr. Sarah Jenkins',
@@ -293,8 +276,8 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -320,7 +303,7 @@ app.get('/api/hospitals/nearest', async (req, res) => {
           const hLat = parseFloat(h.lat);
           const hLng = parseFloat(h.lon);
           const namePart = (h.display_name || '').split(',')[0].trim();
-          const cleanName = (!namePart || namePart.toLowerCase() === 'hospital') 
+          const cleanName = (!namePart || namePart.toLowerCase() === 'hospital')
             ? `Emergency Hospital ${(h.display_name || '').split(',')[1] || ''}`.trim()
             : namePart;
 
@@ -387,7 +370,7 @@ app.get('/api/hospitals/nearest', async (req, res) => {
     ];
 
     return {
-      id: `hosp-${index + 1}-${Math.round(distKm * 100)}`,
+      _id: `hosp-${index + 1}-${Math.round(distKm * 100)}`,
       name: h.rawName,
       address: h.address,
       fullAddress: h.fullAddress,
@@ -396,11 +379,19 @@ app.get('/api/hospitals/nearest', async (req, res) => {
       distanceKm: parseFloat(distKm.toFixed(2)),
       distance: distStr,
       travelTime: `${estTimeMins} min`,
+      availableBeds: Math.floor(Math.random() * 15) + 1,
       bedAssigned: bedsArr[index % bedsArr.length],
       specialties: index === 0 ? ['Cardiology ER', 'Cath Lab', 'Level-1 Trauma'] : ['General Trauma', 'Neurology', 'ICU'],
       leadDoctor: index === 0 ? 'Dr. Sarah Jenkins (Cardiology Lead)' : 'Dr. Arthur Pendelton',
       doctorPhone: '+1 (555) 019-2831',
-      coords: [h.lat, h.lng]
+      contactNumber: '+1 (555) 019-2831',
+      coords: [h.lat, h.lng],
+      activeDoctors: index % 2 === 0 ? [
+        { name: "Dr. Sarah Jenkins", specialty: "Trauma Surgeon", status: "On Shift" },
+        { name: "Dr. Mike Ross", specialty: "Cardiologist", status: "In Surgery" }
+      ] : [
+        { name: "Dr. Emily Chen", specialty: "ER Physician", status: "On Shift" }
+      ]
     };
   });
 
@@ -416,48 +407,48 @@ app.get('/api/hospitals/nearest', async (req, res) => {
 });
 
 // WEBSOCKET REAL-TIME EVENT HANDLERS
-io.on('connection', async (socket) => {
-  console.log(`⚡ Client connected to WebSockets: ${socket.id}`);
+io.on('connection', (socket) => {
+  console.log('⚡ Client connected to WebSockets:', socket.id);
 
-  try {
-    // Send current state on connect from DB
-    const activeSOS = await SOS.findOne().sort({ createdAt: -1 });
-    const beds = await Bed.find().sort({ id: 1 });
-    
-    socket.emit('sos:active', activeSOS);
-    socket.emit('beds:update', beds);
+  socket.on('join_hospital', (hospitalId) => {
+    socket.join(`hospital_${hospitalId}`);
+    console.log(`🏥 Hospital dashboard joined room: hospital_${hospitalId}`);
+  });
 
-    // 1. Live Ambulance Telemetry Streaming (GPS + Speed + Corridor)
-    socket.on('ambulance:telemetry', async (data) => {
-      // In a real app we might update the DB here, but since it's high frequency
-      // telemetry streaming, broadcasting is usually enough, occasionally saving.
-      socket.broadcast.emit('ambulance:telemetry_stream', data);
-    });
+  socket.on('location-update', (data) => {
+    io.emit('location-update', data);
+  });
 
-    // 2. Live Patient Vitals Streaming (HR, BP, SpO2, Shock Index)
-    socket.on('patient:vitals_stream', (vitals) => {
-      socket.broadcast.emit('patient:vitals_update', vitals);
-    });
+  socket.on('vitals-sync', (data) => {
+    io.emit('vitals-sync', data);
+  });
 
-    // 3. Push to Talk (PTT) Audio & Transcript Relays
-    socket.on('ptt:start', (data) => {
-      socket.broadcast.emit('ptt:incoming_start', data);
-    });
+  socket.on('ambulance:telemetry', (data) => {
+    io.emit('ambulance:telemetry', data); // Keep legacy for now just in case
+    socket.broadcast.emit('ambulance:telemetry_stream', data);
+  });
 
-    socket.on('ptt:audio_chunk', (chunk) => {
-      socket.broadcast.emit('ptt:audio_chunk', chunk);
-    });
+  // 2. Live Patient Vitals Streaming (HR, BP, SpO2, Shock Index)
+  socket.on('patient:vitals_stream', (vitals) => {
+    socket.broadcast.emit('patient:vitals_update', vitals);
+  });
 
-    socket.on('ptt:transcript', (data) => {
-      socket.broadcast.emit('ptt:transcript_stream', data);
-    });
+  // 3. Push to Talk (PTT) Audio & Transcript Relays
+  socket.on('ptt:start', (data) => {
+    socket.broadcast.emit('ptt:incoming_start', data);
+  });
 
-    socket.on('ptt:end', (data) => {
-      socket.broadcast.emit('ptt:incoming_end', data);
-    });
-  } catch (err) {
-    console.error('Socket Connection Error:', err);
-  }
+  socket.on('ptt:audio_chunk', (chunk) => {
+    socket.broadcast.emit('ptt:audio_chunk', chunk);
+  });
+
+  socket.on('ptt:transcript', (data) => {
+    socket.broadcast.emit('ptt:transcript_stream', data);
+  });
+
+  socket.on('ptt:end', (data) => {
+    socket.broadcast.emit('ptt:incoming_end', data);
+  });
 
   socket.on('disconnect', () => {
     console.log(`🔌 Client disconnected: ${socket.id}`);

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Users, Plus, Phone, Trash2, Edit3, Send, CheckCircle2, Shield, Heart, MessageCircle } from 'lucide-react';
 import TiltCard from '../TiltCard';
 
-export default function EmergencyContacts({ contacts, onUpdateContacts }) {
+export default function EmergencyContacts({ contacts, onUpdateContacts, activeSOS }) {
   const [isAdding, setIsAdding] = useState(false);
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('Spouse');
@@ -40,7 +40,13 @@ export default function EmergencyContacts({ contacts, onUpdateContacts }) {
   };
 
   const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta) => {
-    const trackingLink = `https://medalert.ai/track/SOS-${Math.floor(100000 + Math.random() * 900000)}`;
+    if (!activeSOS) {
+      alert("Please trigger an SOS emergency first to generate a live tracking link.");
+      return;
+    }
+    const trackingId = activeSOS.id;
+    const baseUrl = import.meta.env.VITE_FRONTEND_URL || (window.location.hostname !== 'localhost' ? window.location.origin : 'https://medi-alert-app.onrender.com');
+    const trackingLink = `${baseUrl}/?track=${trackingId}`;
     const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -55,8 +61,10 @@ Please contact the patient/ambulance immediately.
 
 This is an automated MedAlert AI alert.`;
 
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
+    // Clean phone number (remove +, spaces, parentheses) for wa.me link
+    const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.location.href = whatsappUrl;
   };
 
   return (

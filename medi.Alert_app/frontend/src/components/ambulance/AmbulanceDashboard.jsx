@@ -39,8 +39,10 @@ import TiltCard from '../TiltCard';
 import RealMapTracker from '../patient/RealMapTracker';
 import socket from '../../services/socket';
 
-const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta) => {
-  const trackingLink = `https://medalert.ai/track/SOS-${Math.floor(100000 + Math.random() * 900000)}`;
+const sendEmergencyWhatsApp = (phoneNumber, patientName, hospital, eta, activeCase) => {
+  const trackingId = activeCase?.id || `SOS-${Math.floor(100000 + Math.random() * 900000)}`;
+  const baseUrl = import.meta.env.VITE_FRONTEND_URL || (window.location.hostname !== 'localhost' ? window.location.origin : 'https://medi-alert-app.onrender.com');
+  const trackingLink = `${baseUrl}/?track=${trackingId}`;
   const message = `🚨 MEDALERT EMERGENCY ALERT 🚨
 
 Patient: ${patientName}
@@ -55,9 +57,11 @@ Please contact the patient/ambulance immediately.
 
 This is an automated MedAlert AI alert.`;
 
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  // Clean phone number (remove +, spaces, parentheses) for wa.me link
+  const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
-  window.open(whatsappUrl, "_blank");
+  window.location.href = whatsappUrl;
 };
 
 export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
@@ -70,6 +74,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   const [greenCorridor, setGreenCorridor] = useState(true);
   const [speed, setSpeed] = useState(68);
   const [activeTab, setActiveTab] = useState('navigation');
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const radioChannelRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -85,37 +90,16 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     baseHospital: driverUser?.baseHospital || 'City Cardiac Institute'
   };
 
-  // Active Emergency Case Data (dynamic state)
-  const [emergencyCase, setEmergencyCase] = useState({
-    id: 'SOS-849120',
-    priority: 'RED',
-    patientName: 'Alex Johnson',
-    ageGender: '62yo Male',
-    location: '100ft Road, Indiranagar, Sector 4',
-    condition: 'Acute Myocardial Infarction (STEMI)',
-    allergies: 'Penicillin, Latex',
-    vitals: {
-      heartRate: 112,
-      bp: '142/90',
-      spo2: 94,
-      respRate: 22
-    },
-    hospital: {
-      name: 'City Cardiac & Emergency Institute',
-      bed: 'Cardiology Bed #4 (Locked)',
-      address: '45 Healthcare Boulevard',
-      doctor: 'Dr. Sarah Jenkins (Cardiology Lead)',
-      doctorPhone: '+1 (555) 019-2831'
-    },
-    contactPhone: '+1 (555) 392-0194'
-  });
+  const [emergencyCase, setEmergencyCase] = useState(null);
+  const [incomingEmergency, setIncomingEmergency] = useState(null);
 
   // Fetch dynamic active emergency from backend REST API
   useEffect(() => {
-    fetch('http://localhost:5000/api/sos/active')
+    fetch((import.meta.env.VITE_BACKEND_URL || "") + "/api/sos/active")
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
+          // If it's already active and assigned, just show it.
           setEmergencyCase(prev => ({ ...prev, ...data.sos }));
         }
       })
@@ -123,7 +107,10 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
     // Listen for WebSocket emergency broadcasts
     socket.on('sos:broadcast', (newSos) => {
-      setEmergencyCase(prev => ({ ...prev, ...newSos }));
+      if (!emergencyCase) {
+        // Show as incoming request for driver to accept/decline
+        setIncomingEmergency(prev => ({ ...prev, ...newSos }));
+      }
     });
 
     // Listen for WebSocket doctor medication pre-approvals
@@ -136,6 +123,25 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
       socket.off('doctor:medication_order');
     };
   }, []);
+
+  const handleCompleteSOS = async () => {
+    if (!emergencyCase?.id) return;
+    setIsCompleting(true);
+    try {
+      const response = await fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/sos/${emergencyCase.id}/complete`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (data.success) {
+        setEmergencyCase(null);
+        setDutyStatus('STANDBY');
+      }
+    } catch (error) {
+      console.error('Failed to complete SOS:', error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   // Dynamic speed fluctuation & WebSocket real-time telemetry stream
   useEffect(() => {
@@ -382,6 +388,106 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     { id: 5, label: 'ER Handover', desc: 'Complete' }
   ];
 
+  const handleAcceptSOS = () => {
+    setEmergencyCase(incomingEmergency);
+    setIncomingEmergency(null);
+    setDutyStatus('IN DISPATCH');
+    setSirenActive(true);
+  };
+
+  const handleDeclineSOS = () => {
+    setIncomingEmergency(null);
+    setDutyStatus('STANDBY');
+  };
+
+  if (!emergencyCase) {
+    if (incomingEmergency) {
+      return (
+        <div className="min-h-screen bg-[#1C2B22] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
+          <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+              <button onClick={onBackToLanding} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"><ArrowLeft className="w-4 h-4" /><span>Landing</span></button>
+              <div className="flex items-center gap-2"><Ambulance className="w-5 h-5 text-white" /><span className="font-serif-heading text-lg font-bold text-white tracking-tight">Ambulance Command</span></div>
+              <div></div>
+            </div>
+          </header>
+          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 relative">
+            
+            {/* Pulsing Alert Background */}
+            <div className="absolute inset-0 bg-[#D9532F]/20 animate-pulse pointer-events-none"></div>
+
+            <div className="relative z-10 w-28 h-28 bg-[#D9532F] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(217,83,47,0.6)] animate-bounce">
+              <ShieldAlert className="w-14 h-14 text-white" />
+            </div>
+            
+            <div className="relative z-10 space-y-2">
+              <h2 className="text-3xl sm:text-4xl font-serif-heading font-bold text-white tracking-wide">🚨 INCOMING EMERGENCY 🚨</h2>
+              <p className="text-[#72DFB4] font-mono text-sm uppercase tracking-widest bg-[#0C4A3B]/60 inline-block px-4 py-1 rounded-full border border-[#72DFB4]/30">Level-1 Dispatch Request</p>
+            </div>
+
+            <div className="relative z-10 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 max-w-lg w-full text-left space-y-4 shadow-2xl">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Patient</span>
+                <p className="text-lg font-bold text-white">{incomingEmergency.patientName} ({incomingEmergency.ageGender || 'Unknown'})</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Reported Condition</span>
+                <p className="text-base text-yellow-300 font-semibold">{incomingEmergency.condition || incomingEmergency.symptoms}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Location</span>
+                <p className="text-base text-white font-medium flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#D9532F]" />
+                  {incomingEmergency.location}
+                </p>
+              </div>
+              <div className="pt-2">
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">AI Triage Severity</span>
+                <p className="text-sm text-red-400 font-bold uppercase">{incomingEmergency.aiTriage?.severity || incomingEmergency.priority || 'RED'}</p>
+              </div>
+            </div>
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-lg">
+              <button 
+                onClick={handleDeclineSOS}
+                className="w-full sm:w-auto flex-1 py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold transition-all cursor-pointer text-sm"
+              >
+                DECLINE
+              </button>
+              <button 
+                onClick={handleAcceptSOS}
+                className="w-full sm:w-auto flex-1 py-4 rounded-2xl bg-[#D9532F] hover:bg-[#C24522] text-white font-bold transition-all cursor-pointer shadow-[0_0_20px_rgba(217,83,47,0.5)] flex items-center justify-center gap-2 text-lg uppercase tracking-wider"
+              >
+                <CheckCircle2 className="w-6 h-6" />
+                ACCEPT DISPATCH
+              </button>
+            </div>
+
+          </main>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-[#F8F7F4] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
+        <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+             <button onClick={onBackToLanding} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"><ArrowLeft className="w-4 h-4" /><span>Landing</span></button>
+             <div className="flex items-center gap-2"><Ambulance className="w-5 h-5 text-white" /><span className="font-serif-heading text-lg font-bold text-white tracking-tight">Ambulance Command</span></div>
+             <div></div>
+           </div>
+        </header>
+        <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-24 h-24 bg-[#E8F0EC] rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <Radio className="w-12 h-12 text-[#0C4A3B] animate-pulse" />
+          </div>
+          <h2 className="text-3xl font-serif-heading font-bold text-[#1C2B22] mb-2">Awaiting Dispatch</h2>
+          <p className="text-[#5F6B63] max-w-md">Your unit is on standby. You will receive an alert here immediately when a new emergency is assigned to you.</p>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F7F4] text-[#1C2B22] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
       
@@ -418,7 +524,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
           </div>
 
           {/* Quick Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             {/* Siren Toggle */}
             <button
               onClick={() => setSirenActive(!sirenActive)}
@@ -486,20 +592,52 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
-              <a
-                href={`tel:${emergencyCase.contactPhone}`}
-                className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
-              >
-                <PhoneCall className="w-4 h-4" />
-                <span>Call Family</span>
-              </a>
+              {emergencyCase.emergencyContacts && emergencyCase.emergencyContacts.length > 0 ? (
+                emergencyCase.emergencyContacts.map((contact, idx) => (
+                  <React.Fragment key={idx}>
+                    <a
+                      href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}
+                      className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
+                    >
+                      <PhoneCall className="w-4 h-4" />
+                      <span>Call {contact.name.split(' ')[0]}</span>
+                    </a>
+                    <button
+                      onClick={() => sendEmergencyWhatsApp(contact.phone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon', emergencyCase)}
+                      className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>WA {contact.name.split(' ')[0]}</span>
+                    </button>
+                  </React.Fragment>
+                ))
+              ) : (
+                <React.Fragment>
+                  <a
+                    href={`tel:${emergencyCase.contactPhone.replace(/[^\d+]/g, '')}`}
+                    className="flex-1 lg:flex-none justify-center bg-[#D9532F] hover:bg-[#B53B18] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer text-decoration-none"
+                  >
+                    <PhoneCall className="w-4 h-4" />
+                    <span>Call Family</span>
+                  </a>
+
+                  <button
+                    onClick={() => sendEmergencyWhatsApp(emergencyCase.contactPhone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon', emergencyCase)}
+                    className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp</span>
+                  </button>
+                </React.Fragment>
+              )}
 
               <button
-                onClick={() => sendEmergencyWhatsApp(emergencyCase.contactPhone?.replace(/\D/g, '') || '', emergencyCase.patientName || 'Unknown', emergencyCase.hospitalName || 'City Cardiac Institute', 'Arriving Soon')}
-                className="flex-1 lg:flex-none justify-center bg-[#25D366] hover:bg-[#1DA851] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer"
+                onClick={handleCompleteSOS}
+                disabled={isCompleting}
+                className="flex-1 lg:flex-none justify-center bg-[#0C4A3B] hover:bg-[#08362B] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow transition-all cursor-pointer disabled:opacity-50"
               >
-                <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp</span>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{isCompleting ? 'Completing...' : 'Complete SOS'}</span>
               </button>
 
               <button
@@ -707,7 +845,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
                 </div>
 
                 <a
-                  href={`tel:${emergencyCase.hospital?.doctorPhone || '+15550192831'}`}
+                  href={`tel:${(emergencyCase.hospital?.doctorPhone || '+15550192831').replace(/[^\d+]/g, '')}`}
                   className="bg-[#0C4A3B] hover:bg-[#08362B] text-white font-bold px-5 py-3 rounded-2xl text-xs flex items-center gap-2 shadow text-decoration-none"
                 >
                   <Stethoscope className="w-4 h-4 text-[#72DFB4]" />
