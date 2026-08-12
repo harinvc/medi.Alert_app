@@ -135,6 +135,8 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
       location: location.address,
       patientName: medicalProfile?.name || 'Alex Johnson',
       allergies: medicalProfile?.allergies || 'Penicillin, Latex',
+      chronicConditions: medicalProfile?.chronicConditions || 'None',
+      medicalHistory: medicalProfile?.medicalHistory || [],
       bloodGroup: medicalProfile?.bloodGroup || 'O+',
       emergencyContacts: emergencyContacts?.map(c => ({ name: c.name, phone: c.phone, relationship: c.relationship })) || []
     };

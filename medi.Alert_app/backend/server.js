@@ -370,7 +370,7 @@ app.get('/api/hospitals/nearest', async (req, res) => {
     ];
 
     return {
-      id: `hosp-${index + 1}-${Math.round(distKm * 100)}`,
+      _id: `hosp-${index + 1}-${Math.round(distKm * 100)}`,
       name: h.rawName,
       address: h.address,
       fullAddress: h.fullAddress,
@@ -379,11 +379,19 @@ app.get('/api/hospitals/nearest', async (req, res) => {
       distanceKm: parseFloat(distKm.toFixed(2)),
       distance: distStr,
       travelTime: `${estTimeMins} min`,
+      availableBeds: Math.floor(Math.random() * 15) + 1,
       bedAssigned: bedsArr[index % bedsArr.length],
       specialties: index === 0 ? ['Cardiology ER', 'Cath Lab', 'Level-1 Trauma'] : ['General Trauma', 'Neurology', 'ICU'],
       leadDoctor: index === 0 ? 'Dr. Sarah Jenkins (Cardiology Lead)' : 'Dr. Arthur Pendelton',
       doctorPhone: '+1 (555) 019-2831',
-      coords: [h.lat, h.lng]
+      contactNumber: '+1 (555) 019-2831',
+      coords: [h.lat, h.lng],
+      activeDoctors: index % 2 === 0 ? [
+        { name: "Dr. Sarah Jenkins", specialty: "Trauma Surgeon", status: "On Shift" },
+        { name: "Dr. Mike Ross", specialty: "Cardiologist", status: "In Surgery" }
+      ] : [
+        { name: "Dr. Emily Chen", specialty: "ER Physician", status: "On Shift" }
+      ]
     };
   });
 

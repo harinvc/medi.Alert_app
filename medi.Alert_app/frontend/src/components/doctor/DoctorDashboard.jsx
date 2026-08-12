@@ -145,22 +145,25 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
       .then(data => {
         if (data.success && data.sos) {
           const sos = data.sos;
-          const mappedCase = {
-            id: 'case-1',
-            sosId: sos.id || 'SOS-UNKNOWN',
-            severity: sos.priority || 'RED',
-            badgeClass: sos.priority === 'RED' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white',
-            title: sos.condition || 'Acute Cardiac Event (STEMI)',
-            patientName: sos.patientName || 'Emergency Patient',
-            ageGender: sos.ageGender || 'Unknown',
-            ambulanceUnit: sos.driver?.unit || 'Ambulance #04',
-            driverName: sos.driver?.name || 'Ambulance Driver',
-            eta: sos.telemetry?.eta || 'ETA Unknown',
-            bedAssigned: sos.hospital?.bed || 'Unassigned',
-            location: sos.location || 'Unknown Location',
-            vitals: sos.vitals || { hr: '--', bp: '--/--', spo2: '--', rr: '--' },
-            aiSummary: sos.symptoms || 'No AI summary available'
-          };
+            const mappedCase = {
+              id: 'case-1',
+              sosId: sos.id || 'SOS-UNKNOWN',
+              severity: sos.priority || 'RED',
+              badgeClass: sos.priority === 'RED' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white',
+              title: sos.condition || 'Acute Cardiac Event (STEMI)',
+              patientName: sos.patientName || 'Emergency Patient',
+              ageGender: sos.ageGender || 'Unknown',
+              ambulanceUnit: sos.driver?.unit || 'Ambulance #04',
+              driverName: sos.driver?.name || 'Ambulance Driver',
+              eta: sos.telemetry?.eta || 'ETA Unknown',
+              bedAssigned: sos.hospital?.bed || 'Unassigned',
+              location: sos.location || 'Unknown Location',
+              vitals: sos.vitals || { hr: '--', bp: '--/--', spo2: '--', rr: '--' },
+              aiSummary: sos.symptoms || 'No AI summary available',
+              allergies: sos.allergies || 'None',
+              chronicConditions: sos.chronicConditions || 'None',
+              medicalHistory: sos.medicalHistory || []
+            };
           setCases([mappedCase]);
         }
       })
@@ -181,7 +184,10 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
         bedAssigned: newSos.hospital?.name ? 'Assigned' : 'Unassigned',
         location: newSos.location || 'Unknown',
         vitals: newSos.vitals || { hr: '--', bp: '--/--', spo2: '--', rr: '--' },
-        aiSummary: newSos.aiTriage?.summary || newSos.symptoms || ''
+        aiSummary: newSos.aiTriage?.summary || newSos.symptoms || '',
+        allergies: newSos.allergies || 'None',
+        chronicConditions: newSos.chronicConditions || 'None',
+        medicalHistory: newSos.medicalHistory || []
       };
       setCases([mappedCase]);
       setSelectedCaseId(mappedCase.id);
@@ -466,6 +472,33 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                   <span>Synced Live via WebSockets</span>
                 </div>
                 <p className="text-sm leading-relaxed text-gray-100">{activeCase.aiSummary}</p>
+              </div>
+
+              {/* Patient Medical History */}
+              <div className="bg-[#FAF9F6] p-4.5 rounded-2xl border border-[#E5E2D9] space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#0C4A3B] flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-[#0C4A3B]" /> Patient Medical History
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-gray-500 uppercase text-[10px] font-bold block mb-1">Known Allergies</span>
+                    <span className="font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded">{activeCase.allergies || 'None Recorded'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 uppercase text-[10px] font-bold block mb-1">Chronic Conditions</span>
+                    <span className="font-semibold text-gray-800">{activeCase.chronicConditions || 'None Recorded'}</span>
+                  </div>
+                </div>
+                {activeCase.medicalHistory && activeCase.medicalHistory.length > 0 && (
+                  <div className="mt-3">
+                    <span className="text-gray-500 uppercase text-[10px] font-bold block mb-1">Past Procedures / Notes</span>
+                    <ul className="list-disc pl-4 space-y-1 text-gray-700">
+                      {activeCase.medicalHistory.map((item, idx) => (
+                        <li key={idx}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* AI Emergency Pre-Arrival Medication Orders */}
@@ -806,6 +839,23 @@ export default function DoctorDashboard({ doctorUser, onBackToLanding }) {
                     <span>Synced Live</span>
                   </div>
                   <p className="text-sm leading-relaxed text-gray-100">{activeCase.aiSummary}</p>
+                </div>
+
+                {/* Patient Medical History */}
+                <div className="bg-[#FAF9F6] p-4.5 rounded-2xl border border-[#E5E2D9] space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0C4A3B] flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#0C4A3B]" /> Patient Medical History
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-gray-500 uppercase text-[10px] font-bold block mb-1">Known Allergies</span>
+                      <span className="font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded">{activeCase.allergies || 'None Recorded'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 uppercase text-[10px] font-bold block mb-1">Chronic Conditions</span>
+                      <span className="font-semibold text-gray-800">{activeCase.chronicConditions || 'None Recorded'}</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

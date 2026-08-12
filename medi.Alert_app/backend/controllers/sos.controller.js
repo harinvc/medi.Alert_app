@@ -5,7 +5,7 @@ const matchingService = require('../services/matching.service');
 
 exports.triggerSOS = async (req, res) => {
   try {
-    const { symptoms, location, patientName, bloodGroup, allergies, emergencyContacts } = req.body;
+    const { symptoms, location, patientName, bloodGroup, allergies, chronicConditions, medicalHistory, emergencyContacts } = req.body;
     
     // Parse location if it's a string containing coordinates or fallback to default
     // In a real app, frontend would send accurate lat/lng. Here we mock from the text.
@@ -13,7 +13,7 @@ exports.triggerSOS = async (req, res) => {
     let patientLng = 77.5946;
     
     // 1. AI Triage
-    const aiTriage = await aiService.analyzeSymptoms(symptoms, allergies, "None");
+    const aiTriage = await aiService.analyzeSymptoms(symptoms, allergies, chronicConditions || "None");
 
     // 2. Hospital Matching Engine
     let bestHospital = await matchingService.findBestHospital(patientLat, patientLng, aiTriage.required_resources);
@@ -27,6 +27,8 @@ exports.triggerSOS = async (req, res) => {
       location: location || '100ft Road, Sector 4',
       condition: symptoms,
       allergies: allergies || 'None',
+      chronicConditions: chronicConditions || 'None',
+      medicalHistory: medicalHistory || [],
       symptoms: symptoms,
       emergencyContacts: emergencyContacts || [],
       vitals: {

@@ -8,6 +8,8 @@ const emergencyCaseSchema = new mongoose.Schema({
   location: { type: String, required: true }, // Text address
   condition: { type: String },
   allergies: { type: String },
+  chronicConditions: { type: String },
+  medicalHistory: { type: Array, default: [] },
   symptoms: { type: String, required: true },
   emergencyContacts: [{
     name: String,

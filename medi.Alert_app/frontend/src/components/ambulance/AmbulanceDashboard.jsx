@@ -91,6 +91,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
   };
 
   const [emergencyCase, setEmergencyCase] = useState(null);
+  const [incomingEmergency, setIncomingEmergency] = useState(null);
 
   // Fetch dynamic active emergency from backend REST API
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
       .then(res => res.json())
       .then(data => {
         if (data.success && data.sos) {
+          // If it's already active and assigned, just show it.
           setEmergencyCase(prev => ({ ...prev, ...data.sos }));
         }
       })
@@ -105,7 +107,10 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
 
     // Listen for WebSocket emergency broadcasts
     socket.on('sos:broadcast', (newSos) => {
-      setEmergencyCase(prev => ({ ...prev, ...newSos }));
+      if (!emergencyCase) {
+        // Show as incoming request for driver to accept/decline
+        setIncomingEmergency(prev => ({ ...prev, ...newSos }));
+      }
     });
 
     // Listen for WebSocket doctor medication pre-approvals
@@ -383,7 +388,86 @@ export default function AmbulanceDashboard({ driverUser, onBackToLanding }) {
     { id: 5, label: 'ER Handover', desc: 'Complete' }
   ];
 
+  const handleAcceptSOS = () => {
+    setEmergencyCase(incomingEmergency);
+    setIncomingEmergency(null);
+    setDutyStatus('IN DISPATCH');
+    setSirenActive(true);
+  };
+
+  const handleDeclineSOS = () => {
+    setIncomingEmergency(null);
+    setDutyStatus('STANDBY');
+  };
+
   if (!emergencyCase) {
+    if (incomingEmergency) {
+      return (
+        <div className="min-h-screen bg-[#1C2B22] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
+          <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+              <button onClick={onBackToLanding} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"><ArrowLeft className="w-4 h-4" /><span>Landing</span></button>
+              <div className="flex items-center gap-2"><Ambulance className="w-5 h-5 text-white" /><span className="font-serif-heading text-lg font-bold text-white tracking-tight">Ambulance Command</span></div>
+              <div></div>
+            </div>
+          </header>
+          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-8 relative">
+            
+            {/* Pulsing Alert Background */}
+            <div className="absolute inset-0 bg-[#D9532F]/20 animate-pulse pointer-events-none"></div>
+
+            <div className="relative z-10 w-28 h-28 bg-[#D9532F] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(217,83,47,0.6)] animate-bounce">
+              <ShieldAlert className="w-14 h-14 text-white" />
+            </div>
+            
+            <div className="relative z-10 space-y-2">
+              <h2 className="text-3xl sm:text-4xl font-serif-heading font-bold text-white tracking-wide">🚨 INCOMING EMERGENCY 🚨</h2>
+              <p className="text-[#72DFB4] font-mono text-sm uppercase tracking-widest bg-[#0C4A3B]/60 inline-block px-4 py-1 rounded-full border border-[#72DFB4]/30">Level-1 Dispatch Request</p>
+            </div>
+
+            <div className="relative z-10 bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 max-w-lg w-full text-left space-y-4 shadow-2xl">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Patient</span>
+                <p className="text-lg font-bold text-white">{incomingEmergency.patientName} ({incomingEmergency.ageGender || 'Unknown'})</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Reported Condition</span>
+                <p className="text-base text-yellow-300 font-semibold">{incomingEmergency.condition || incomingEmergency.symptoms}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Location</span>
+                <p className="text-base text-white font-medium flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#D9532F]" />
+                  {incomingEmergency.location}
+                </p>
+              </div>
+              <div className="pt-2">
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">AI Triage Severity</span>
+                <p className="text-sm text-red-400 font-bold uppercase">{incomingEmergency.aiTriage?.severity || incomingEmergency.priority || 'RED'}</p>
+              </div>
+            </div>
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-lg">
+              <button 
+                onClick={handleDeclineSOS}
+                className="w-full sm:w-auto flex-1 py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold transition-all cursor-pointer text-sm"
+              >
+                DECLINE
+              </button>
+              <button 
+                onClick={handleAcceptSOS}
+                className="w-full sm:w-auto flex-1 py-4 rounded-2xl bg-[#D9532F] hover:bg-[#C24522] text-white font-bold transition-all cursor-pointer shadow-[0_0_20px_rgba(217,83,47,0.5)] flex items-center justify-center gap-2 text-lg uppercase tracking-wider"
+              >
+                <CheckCircle2 className="w-6 h-6" />
+                ACCEPT DISPATCH
+              </button>
+            </div>
+
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-[#F8F7F4] flex flex-col justify-between selection:bg-[#D9532F]/15 selection:text-[#D9532F]">
         <header className="sticky top-0 z-40 bg-[#0C4A3B] text-white border-b border-[#08362B] shadow-md">

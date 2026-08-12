@@ -20,9 +20,11 @@ import LiveAmbulanceTracker from './LiveAmbulanceTracker';
 import EmergencyContacts from './EmergencyContacts';
 import MedicalProfile from './MedicalProfile';
 import EmergencyHistory from './EmergencyHistory';
+import NearbyHospitals from './NearbyHospitals';
+import { Building2 } from 'lucide-react'; // Icon for hospitals
 
 export default function PatientDashboard({ user, onBackToLanding }) {
-  const [activeTab, setActiveTab] = useState('sos'); // 'sos', 'tracking', 'contacts', 'profile', 'history'
+  const [activeTab, setActiveTab] = useState('sos'); // 'sos', 'tracking', 'contacts', 'profile', 'history', 'hospitals'
   const [activeSOS, setActiveSOS] = useState(null);
 
   // Dynamic emergency contacts from DB
@@ -145,6 +147,18 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           </button>
 
           <button
+            onClick={() => setActiveTab('hospitals')}
+            className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'hospitals'
+                ? 'bg-[#0C4A3B] text-white shadow'
+                : 'text-[#5F6B63] hover:text-[#1C2B22] hover:bg-[#FAF9F6]'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Hospitals</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('tracking')}
             className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer relative whitespace-nowrap ${
               activeTab === 'tracking'
@@ -236,6 +250,10 @@ export default function PatientDashboard({ user, onBackToLanding }) {
           />
         )}
 
+        {activeTab === 'hospitals' && (
+          <NearbyHospitals />
+        )}
+
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
@@ -250,6 +268,18 @@ export default function PatientDashboard({ user, onBackToLanding }) {
             <ShieldAlert className="w-5 h-5" />
           </div>
           <span>SOS</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('hospitals')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-xl text-[10px] font-bold transition-all ${
+            activeTab === 'hospitals' ? 'text-[#0C4A3B]' : 'text-gray-500'
+          }`}
+        >
+          <div className={`p-1.5 rounded-full ${activeTab === 'hospitals' ? 'bg-[#0C4A3B]/10' : ''}`}>
+            <Building2 className="w-5 h-5" />
+          </div>
+          <span>Hospitals</span>
         </button>
 
         <button
