@@ -215,7 +215,7 @@ export default function SosTrigger({ onEmergencyTriggered, emergencyContacts, me
               onClick={async () => {
                 if (activeSOS && activeSOS.id) {
                   try {
-                    await fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/sos/${activeSOS.id}/complete`, { method: 'PUT' });
+                    await fetch((import.meta.env.VITE_BACKEND_URL || "") + `/api/sos/${activeSOS.id}/complete`, { method: 'POST' });
                   } catch (e) { console.log(e); }
                 }
                 setActiveSOS(null);

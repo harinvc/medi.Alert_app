@@ -20,8 +20,18 @@ const server = http.createServer(app);
 connectDB();
 
 // Enable CORS for frontend clients
+const ALLOWED_ORIGINS = [
+  'https://frontend-lemon-zeta-65.vercel.app',
+  'https://medi-alert-app-qqoy.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173'
+];
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, Render health checks)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
@@ -30,7 +40,7 @@ app.use(express.json());
 // Initialize Socket.io Server
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST']
   }
 });
@@ -187,7 +197,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     console.log(`🔑 OTP CODE: ${otp}`);
     console.log(`===========================================\n`);
 
-    res.json({ success: true, message: 'OTP sent successfully (Check backend console)', devOtp: otp });
+    res.json({ success: true, message: 'OTP sent successfully (Check backend console)' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -286,7 +296,7 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 app.get('/api/hospitals/nearest', async (req, res) => {
   const lat = parseFloat(req.query.lat) || 12.9716;
   const lng = parseFloat(req.query.lng) || 77.5946;
-  const MAPTILER_KEY = process.env.MAPTILER_API_KEY || '6VYRpEtYjtPMoI6mh0Ef';
+  const MAPTILER_KEY = process.env.MAPTILER_API_KEY;
 
   let rawHospitals = [];
 

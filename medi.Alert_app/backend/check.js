@@ -1,0 +1,1 @@
+const mongoose = require('mongoose'); mongoose.connect('mongodb://localhost:27017/medalert').then(async () => { const db = mongoose.connection; const cases = await db.collection('emergencycases').find({ status: { $ne: 'COMPLETED' } }).toArray(); console.log(cases.length); process.exit(0); });
