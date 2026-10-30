@@ -23,6 +23,7 @@ connectDB();
 const ALLOWED_ORIGINS = [
   'https://frontend-lemon-zeta-65.vercel.app',
   'https://medi-alert-app-qqoy.vercel.app',
+  'https://medi-alert-app-1.onrender.com',
   'http://localhost:5173',
   'http://localhost:4173'
 ];
