@@ -21,6 +21,7 @@ connectDB();
 
 // Enable CORS for frontend clients
 const ALLOWED_ORIGINS = [
+  'https://medalert-ai.vercel.app',
   'https://frontend-lemon-zeta-65.vercel.app',
   'https://medi-alert-app-qqoy.vercel.app',
   'https://medi-alert-app-1.onrender.com',
